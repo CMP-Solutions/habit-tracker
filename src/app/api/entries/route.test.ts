@@ -138,46 +138,68 @@ describe("POST /api/entries", () => {
     expect(res.status).toBe(400);
   });
 
-  it("breaks the current streak when a period falls short of its target, proving periods are pass/fail units", async () => {
-    // periodTarget: 2 per week. Week 1 gets 2 successful check-ins (meets
-    // target -> period succeeds). Week 2 gets only 1 (falls short -> period
-    // fails). If the route fell back to raw daily evaluation instead of using
-    // the count_per_period branch, 3 isolated `true` days would never combine
-    // into a failing unit at all — every one of those 3 days would read as an
-    // individual success. Asserting the streak is broken back to 0 after the
-    // week-2 check-in only makes sense if periods are being evaluated as
-    // discrete win/lose units, which is exactly what this proves.
+  it("resets the period streak on a failed period, then rebuilds it to a genuine 7-period milestone", async () => {
+    // periodTarget: 1 per week, one check-in per week on 11 consecutive
+    // Mondays EXCEPT week 4, which gets no check-in at all (period 4 fails:
+    // 0 successes < target 1). Sequence: weeks 1-3 succeed, week 4 fails,
+    // weeks 5-11 succeed (7 consecutive successful periods after the break).
+    //
+    // Traced by hand against calculateCurrentStreak (walks backward from the
+    // end of the evaluation array, stopping at the first failure) and
+    // determineNewMilestones (STREAK_THRESHOLDS = [7, 30, 100]):
+    //
+    // WITH the count_per_period branch: each week's single check-in makes
+    // that week's period succeed (>=1 of target 1), and week 4's empty week
+    // is densified into 7 false days -> period 4 fails. The trailing streak
+    // grows 1,2,3 (weeks 1-3), drops to 1 after week 4 breaks it (the week-5
+    // check-in), then climbs 2,3,4,5,6 through weeks 6-10, and hits exactly
+    // 7 on the week-11 check-in (weeks 5-11 = 7 consecutive successful
+    // periods, blocked from including weeks 1-3 by week 4's failure). The
+    // {type: "streak", threshold: 7} milestone is awarded on that 11th
+    // request, not before.
+    //
+    // WITHOUT the branch (raw daily fallback, as if this branch were
+    // deleted): every check-in is a single successful day surrounded by
+    // false gap days (no two check-ins land on adjacent calendar dates), so
+    // calculateCurrentStreak over the raw densified days is always 1 at
+    // every step, and total successful days only reaches 10 by the end
+    // (nowhere near the total_count threshold of 100). No milestone is EVER
+    // awarded under that path.
+    //
+    // These two paths produce genuinely different `newMilestones` output on
+    // the final request ([{type:"streak",threshold:7}] vs []), which is
+    // exactly what proves the count_per_period branch is doing the work.
     const periodGoal = await db.goal.create({
-      data: { userId, title: "2x pro Woche Fitness", type: "boolean", periodicity: "count_per_period", periodUnit: "week", periodTarget: 2 },
+      data: { userId, title: "1x pro Woche Yoga", type: "boolean", periodicity: "count_per_period", periodUnit: "week", periodTarget: 1 },
     });
 
     const make = (date: string) =>
       POST(new Request("http://localhost/api/entries", { method: "POST", body: JSON.stringify({ goalId: periodGoal.id, date, done: true }) }));
 
-    // Week 1: 2026-09-07 (Mon) + 2026-09-08 (Tue) -> period 1 succeeds.
-    await make("2026-09-07");
-    await make("2026-09-08");
-    // Week 2: only 2026-09-15 (Tue) -> period 2 falls short of target 2.
-    const third = await make("2026-09-15");
-    const thirdBody = await third.json();
+    // Weeks 1-3: succeed. Week 4 (2026-09-28): deliberately skipped -> fails.
+    const week1to3 = ["2026-09-07", "2026-09-14", "2026-09-21"];
+    for (const date of week1to3) {
+      const res = await make(date);
+      expect((await res.json()).newMilestones).toEqual([]);
+    }
 
-    // No milestone is awarded anywhere in this sequence: the streak never
-    // reaches a 7/30/100 threshold, and the failed second period resets any
-    // in-progress streak back to 0.
-    expect(thirdBody.newMilestones).toEqual([]);
-    expect(await db.milestone.count({ where: { goalId: periodGoal.id } })).toBe(0);
+    // Weeks 5-10: succeed, rebuilding the streak, but not yet at 7.
+    const week5to10 = ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09"];
+    for (const date of week5to10) {
+      const res = await make(date);
+      expect((await res.json()).newMilestones).toEqual([]);
+    }
 
-    // Directly confirm the streak was actually broken (not just "not yet at a
-    // milestone threshold") by adding one more successful period (week 3,
-    // periodTarget met) and checking it starts counting from 1 again rather
-    // than continuing to accumulate from period 1.
-    await make("2026-09-21"); // Mon, week 3
-    const fifth = await make("2026-09-22"); // Tue, week 3 -> period 3 succeeds
-    const fifthBody = await fifth.json();
-    expect(fifthBody.newMilestones).toEqual([]); // streak is only 1 period long, not 7
+    // Week 11: the 7th consecutive successful period since week 4's failure.
+    const last = await make("2026-11-16");
+    const lastBody = await last.json();
+    expect(lastBody.newMilestones).toEqual([{ type: "streak", threshold: 7 }]);
+
+    const milestones = await db.milestone.findMany({ where: { goalId: periodGoal.id } });
+    expect(milestones).toHaveLength(1);
 
     const totals = await db.entry.count({ where: { goalId: periodGoal.id } });
-    expect(totals).toBe(5);
+    expect(totals).toBe(10); // 11 weeks, week 4 skipped
   });
 
   it("groups check-ins by calendar month when periodUnit is 'month'", async () => {
