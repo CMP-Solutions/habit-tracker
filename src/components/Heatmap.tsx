@@ -1,3 +1,6 @@
+import { formatLocalDate } from "@/lib/date";
+import { HISTORY_WINDOW_DAYS } from "@/lib/domain/window";
+
 interface DayResult {
   date: string;
   success: boolean;
@@ -7,9 +10,13 @@ export function Heatmap({ results }: { results: DayResult[] }) {
   const byDate = new Map(results.map((r) => [r.date, r.success]));
   const days: { date: string; success: boolean | null }[] = [];
   const cursor = new Date();
-  cursor.setDate(cursor.getDate() - 364);
-  for (let i = 0; i < 365; i++) {
-    const key = cursor.toISOString().slice(0, 10);
+  cursor.setDate(cursor.getDate() - HISTORY_WINDOW_DAYS);
+  // HISTORY_WINDOW_DAYS days back through today, inclusive — the same window
+  // the API routes fetch, so no entry is dropped and no cell is unfetched.
+  for (let i = 0; i <= HISTORY_WINDOW_DAYS; i++) {
+    // Local date parts, not toISOString(): entries are keyed by the user's
+    // local calendar day (see formatLocalDate).
+    const key = formatLocalDate(cursor);
     days.push({ date: key, success: byDate.has(key) ? (byDate.get(key) as boolean) : null });
     cursor.setDate(cursor.getDate() + 1);
   }

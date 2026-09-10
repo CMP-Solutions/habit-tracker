@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { utcMidnightDaysAgo } from "@/lib/domain/window";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -9,10 +10,13 @@ export async function GET(req: Request) {
   const userId = (session.user as { id: string }).id;
 
   const { searchParams } = new URL(req.url);
-  const days = Number(searchParams.get("days") ?? 30);
+  const requestedDays = Number(searchParams.get("days") ?? 30);
+  const days = Number.isFinite(requestedDays) && requestedDays > 0 ? Math.floor(requestedDays) : 30;
 
-  const since = new Date();
-  since.setDate(since.getDate() - days);
+  // Inclusive window of `days` calendar days ending today, anchored at UTC
+  // midnight so the boundary day is never half-included. `days = 365` therefore
+  // covers exactly the 365 cells the Heatmap renders.
+  const since = utcMidnightDaysAgo(days - 1);
 
   const goals = await db.goal.findMany({ where: { userId, archived: false } });
   const entries = await db.entry.findMany({
