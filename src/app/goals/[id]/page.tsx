@@ -14,13 +14,20 @@ interface HistoryResponse {
 export default function GoalDetailPage() {
   const params = useParams<{ id: string }>();
   const [data, setData] = useState<HistoryResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/goals/${params.id}/history`)
-      .then((res) => res.json())
-      .then(setData);
+    fetch(`/api/goals/${params.id}/history`).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Ziel nicht gefunden.");
+        return;
+      }
+      setData(await res.json());
+    });
   }, [params.id]);
 
+  if (error) return <main className="p-6">{error}</main>;
   if (!data) return <main className="p-6">Lädt…</main>;
 
   return (
