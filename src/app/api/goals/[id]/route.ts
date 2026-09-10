@@ -15,7 +15,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const body = await req.json();
-  const { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId, archived } = body;
+  const {
+    title,
+    description,
+    type,
+    unit,
+    targetValue,
+    periodicity,
+    weeklyThreshold,
+    periodUnit,
+    periodTarget,
+    categoryId,
+    archived,
+  } = body;
+
+  if (periodicity === "count_per_period") {
+    const effectiveType = type ?? existing.type;
+    if (effectiveType !== "boolean") {
+      return NextResponse.json({ error: "count_per_period is only available for boolean goals." }, { status: 400 });
+    }
+    if (!["week", "month"].includes(periodUnit)) {
+      return NextResponse.json({ error: "periodUnit must be 'week' or 'month'." }, { status: 400 });
+    }
+    if (!Number.isInteger(periodTarget) || periodTarget < 1) {
+      return NextResponse.json({ error: "periodTarget must be a positive integer." }, { status: 400 });
+    }
+  }
 
   // A category may only be referenced by its owner (cross-tenant data leak).
   // `undefined` leaves the category unchanged; `null`/"" clears it.
@@ -38,6 +63,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       targetValue,
       periodicity,
       weeklyThreshold,
+      periodUnit,
+      periodTarget,
       categoryId: normalizedCategoryId,
       archived,
     },

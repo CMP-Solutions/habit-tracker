@@ -129,4 +129,66 @@ describe("/api/goals", () => {
     const goals = await (await GET()).json();
     expect(goals[0].todayEntry).toBeNull();
   });
+
+  it("creates a count_per_period goal with periodUnit and periodTarget", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/goals", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "3x pro Woche Fitness",
+          type: "boolean",
+          periodicity: "count_per_period",
+          periodUnit: "week",
+          periodTarget: 3,
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const goal = await res.json();
+    expect(goal.periodUnit).toBe("week");
+    expect(goal.periodTarget).toBe(3);
+  });
+
+  it("rejects a count_per_period goal without periodUnit/periodTarget", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/goals", {
+        method: "POST",
+        body: JSON.stringify({ title: "Bad goal", type: "boolean", periodicity: "count_per_period" }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a count_per_period goal for a quantitative type", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/goals", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "Bad goal",
+          type: "quantitative",
+          periodicity: "count_per_period",
+          periodUnit: "week",
+          periodTarget: 3,
+          targetValue: 5,
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an invalid periodUnit", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/goals", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "Bad goal",
+          type: "boolean",
+          periodicity: "count_per_period",
+          periodUnit: "day",
+          periodTarget: 3,
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
 });

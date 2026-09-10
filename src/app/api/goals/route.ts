@@ -40,9 +40,24 @@ export async function POST(req: Request) {
   const userId = (session.user as { id: string }).id;
 
   const body = await req.json();
-  const { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId } = body;
+  const {
+    title,
+    description,
+    type,
+    unit,
+    targetValue,
+    periodicity,
+    weeklyThreshold,
+    periodUnit,
+    periodTarget,
+    categoryId,
+  } = body;
 
-  if (!title || !["boolean", "quantitative"].includes(type) || !["daily", "weekly"].includes(periodicity)) {
+  if (
+    !title ||
+    !["boolean", "quantitative"].includes(type) ||
+    !["daily", "weekly", "count_per_period"].includes(periodicity)
+  ) {
     return NextResponse.json({ error: "title, valid type and periodicity are required." }, { status: 400 });
   }
   if (type === "quantitative" && (targetValue === undefined || targetValue === null)) {
@@ -50,6 +65,17 @@ export async function POST(req: Request) {
   }
   if (periodicity === "weekly" && (weeklyThreshold === undefined || weeklyThreshold === null)) {
     return NextResponse.json({ error: "weeklyThreshold is required for weekly goals." }, { status: 400 });
+  }
+  if (periodicity === "count_per_period") {
+    if (type !== "boolean") {
+      return NextResponse.json({ error: "count_per_period is only available for boolean goals." }, { status: 400 });
+    }
+    if (!["week", "month"].includes(periodUnit)) {
+      return NextResponse.json({ error: "periodUnit must be 'week' or 'month'." }, { status: 400 });
+    }
+    if (!Number.isInteger(periodTarget) || periodTarget < 1) {
+      return NextResponse.json({ error: "periodTarget must be a positive integer." }, { status: 400 });
+    }
   }
   // A category may only be referenced by its owner — otherwise another user's
   // category name/color would be echoed back through GET /api/goals.
@@ -71,6 +97,8 @@ export async function POST(req: Request) {
       targetValue,
       periodicity,
       weeklyThreshold,
+      periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
+      periodTarget: periodicity === "count_per_period" ? periodTarget : undefined,
       categoryId: normalizedCategoryId,
     },
   });
