@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime   @default(now())
+  categories   Category[]
+  goals        Goal[]
+}
+
+model Category {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  color  String
+  icon   String
+  goals  Goal[]
+
+  @@unique([userId, name])
+}
+
+model Goal {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  type            String     // "boolean" | "quantitative"
+  unit            String?
+  targetValue     Float?
+  periodicity     String     // "daily" | "weekly"
+  weeklyThreshold Int?
+  archived        Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  entries         Entry[]
+  milestones      Milestone[]
+}
+
+model Entry {
+  id     String   @id @default(cuid())
+  goalId String
+  goal   Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  date   DateTime // stored as UTC midnight representing a calendar day
+  done   Boolean  @default(false)
+  value  Float?
+
+  @@unique([goalId, date])
+}
+
+model Milestone {
+  id         String   @id @default(cuid())
+  goalId     String
+  goal       Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  type       String   // "streak" | "total_count"
+  threshold  Int
+  achievedAt DateTime @default(now())
+
+  @@unique([goalId, type, threshold])
+}
