@@ -40,8 +40,10 @@ model Goal {
   type            String     // "boolean" | "quantitative"
   unit            String?
   targetValue     Float?
-  periodicity     String     // "daily" | "weekly"
+  periodicity     String     // "daily" | "weekly" | "count_per_period"
   weeklyThreshold Int?
+  periodUnit      String?    // "week" | "month" — only set when periodicity = "count_per_period"
+  periodTarget    Int?       // only set when periodicity = "count_per_period"
   archived        Boolean    @default(false)
   createdAt       DateTime   @default(now())
   entries         Entry[]
