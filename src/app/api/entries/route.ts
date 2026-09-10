@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { DailyResult } from "@/lib/domain/streak";
 import { densifyDailyResults } from "@/lib/domain/densify";
 import { groupIntoWeeks, evaluateWeek } from "@/lib/domain/weeklyGoal";
+import { groupIntoCalendarPeriods, evaluatePeriod, PeriodUnit } from "@/lib/domain/periodCount";
 import { determineNewMilestones, MilestoneAward } from "@/lib/domain/milestones";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -58,6 +59,15 @@ export async function POST(req: Request) {
     evaluationResults = weeks.map((week) => ({
       date: week[0].date,
       success: evaluateWeek(week, goal.weeklyThreshold as number),
+    }));
+  } else if (goal.periodicity === "count_per_period" && goal.periodUnit != null && goal.periodTarget != null) {
+    const periods = groupIntoCalendarPeriods(
+      dailyResults.map((d) => ({ date: d.date, success: d.success })),
+      goal.periodUnit as PeriodUnit
+    );
+    evaluationResults = periods.map((period) => ({
+      date: period[0].date,
+      success: evaluatePeriod(period, goal.periodTarget as number),
     }));
   }
 

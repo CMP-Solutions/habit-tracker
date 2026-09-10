@@ -137,4 +137,52 @@ describe("POST /api/entries", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("does not award a milestone before the period target is reached", async () => {
+    const periodGoal = await db.goal.create({
+      data: { userId, title: "3x pro Woche Fitness", type: "boolean", periodicity: "count_per_period", periodUnit: "week", periodTarget: 3 },
+    });
+
+    // 2026-09-07 is a Monday; both check-ins fall in the same calendar week.
+    const make = (date: string) =>
+      POST(new Request("http://localhost/api/entries", { method: "POST", body: JSON.stringify({ goalId: periodGoal.id, date, done: true }) }));
+
+    await make("2026-09-07");
+    const second = await make("2026-09-08");
+    expect((await second.json()).newMilestones).toEqual([]);
+
+    const totals = await db.entry.count({ where: { goalId: periodGoal.id } });
+    expect(totals).toBe(2);
+  });
+
+  it("awards a 7-period streak milestone across 7 consecutive weekly periods, not 7 raw days", async () => {
+    const periodGoal = await db.goal.create({
+      data: { userId, title: "1x pro Woche", type: "boolean", periodicity: "count_per_period", periodUnit: "week", periodTarget: 1 },
+    });
+
+    // 7 Mondays, 7 days apart — one check-in per calendar week, 7 weeks running.
+    const mondays = [
+      "2026-09-07",
+      "2026-09-14",
+      "2026-09-21",
+      "2026-09-28",
+      "2026-10-05",
+      "2026-10-12",
+      "2026-10-19",
+    ];
+    let lastBody: { newMilestones: { type: string; threshold: number }[] } = { newMilestones: [] };
+    for (const date of mondays) {
+      const res = await POST(
+        new Request("http://localhost/api/entries", { method: "POST", body: JSON.stringify({ goalId: periodGoal.id, date, done: true }) })
+      );
+      lastBody = await res.json();
+    }
+
+    // 7 consecutive successful weekly periods form a 7-period streak. Fed
+    // through raw daily evaluation instead, these 7 isolated days (6 empty,
+    // failed days between each of them) would never form a 7-long streak —
+    // this is what proves the period-grouping branch is actually being used,
+    // not just that entries are being recorded.
+    expect(lastBody.newMilestones).toEqual([{ type: "streak", threshold: 7 }]);
+  });
 });
