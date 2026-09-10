@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { utcToday } from "@/lib/domain/window";
+import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -23,12 +24,26 @@ export async function GET() {
   });
   const entryByGoal = new Map(todaysEntries.map((e) => [e.goalId, e]));
 
+  const periodGoals = goals.filter((g) => g.periodicity === "count_per_period" && g.periodUnit && g.periodTarget != null);
+  const periodProgressByGoal = new Map<string, { current: number; target: number }>();
+  for (const goal of periodGoals) {
+    const { start, end } = periodBounds(today, goal.periodUnit as PeriodUnit);
+    const entries = await db.entry.findMany({
+      where: { goalId: goal.id, date: { gte: start, lte: end } },
+    });
+    const current = entries.filter((e) =>
+      goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity)
+    ).length;
+    periodProgressByGoal.set(goal.id, { current, target: goal.periodTarget as number });
+  }
+
   return NextResponse.json(
     goals.map((goal) => {
       const entry = entryByGoal.get(goal.id);
       return {
         ...goal,
         todayEntry: entry ? { done: entry.done, value: entry.value } : null,
+        periodProgress: periodProgressByGoal.get(goal.id) ?? null,
       };
     })
   );

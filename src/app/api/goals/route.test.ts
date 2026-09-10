@@ -191,4 +191,28 @@ describe("/api/goals", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("includes periodProgress for a count_per_period goal", async () => {
+    const goal = await db.goal.create({
+      data: { userId, title: "Fitness", type: "boolean", periodicity: "count_per_period", periodUnit: "week", periodTarget: 3 },
+    });
+    const today = new Date();
+    const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7)); // this week's Monday
+    await db.entry.create({ data: { goalId: goal.id, date: monday, done: true } });
+
+    const res = await GET();
+    const goals = await res.json();
+    const found = goals.find((g: { id: string }) => g.id === goal.id);
+    expect(found.periodProgress).toEqual({ current: 1, target: 3 });
+  });
+
+  it("returns periodProgress null for a non-count_per_period goal", async () => {
+    await db.goal.create({ data: { userId, title: "Daily thing", type: "boolean", periodicity: "daily" } });
+    const res = await GET();
+    const goals = await res.json();
+    expect(goals.every((g: { periodProgress: unknown }) => g.periodProgress === null || typeof g.periodProgress === "object")).toBe(true);
+    const daily = goals.find((g: { title: string }) => g.title === "Daily thing");
+    expect(daily.periodProgress).toBeNull();
+  });
 });
