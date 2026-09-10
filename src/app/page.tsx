@@ -13,6 +13,7 @@ interface Goal {
   targetValue: number | null;
   category: { name: string; color: string } | null;
   todayEntry: { done: boolean; value: number | null } | null;
+  periodProgress: { current: number; target: number } | null;
 }
 
 export default function DashboardPage() {

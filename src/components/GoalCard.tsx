@@ -16,6 +16,7 @@ interface Goal {
   targetValue: number | null;
   category: { name: string; color: string } | null;
   todayEntry?: { done: boolean; value: number | null } | null;
+  periodProgress?: { current: number; target: number } | null;
 }
 
 export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => void }) {
@@ -42,6 +43,11 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
           {goal.title}
         </Link>
         {goal.category && <CategoryBadge name={goal.category.name} color={goal.category.color} />}
+        {goal.periodProgress && (
+          <p className="text-xs text-muted-foreground">
+            {goal.periodProgress.current} von {goal.periodProgress.target} diese Periode
+          </p>
+        )}
       </div>
       {goal.type === "boolean" ? (
         <Checkbox
