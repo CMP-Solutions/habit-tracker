@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import { NavBar } from "@/components/NavBar";
+import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
 import "./globals.css";
 
 // Body: a humanist grotesque — open apertures, quiet at small sizes.
@@ -35,7 +37,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${bodySans.variable} ${displaySerif.variable} ${codeMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SessionProviderWrapper>
+          <NavBar />
+          {children}
+        </SessionProviderWrapper>
+      </body>
     </html>
   );
 }
