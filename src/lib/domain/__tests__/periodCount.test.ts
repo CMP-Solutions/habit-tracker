@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupIntoCalendarPeriods, evaluatePeriod, periodBounds } from "../periodCount";
+import { groupIntoCalendarPeriods, evaluatePeriod, periodBounds, PeriodUnit } from "../periodCount";
 
 const day = (date: string, success: boolean) => ({ date, success });
 
@@ -32,6 +32,14 @@ describe("groupIntoCalendarPeriods", () => {
     expect(groupIntoCalendarPeriods([], "week")).toEqual([]);
     expect(groupIntoCalendarPeriods([], "month")).toEqual([]);
   });
+
+  it("throws for an invalid period unit instead of silently falling back to month grouping", () => {
+    // PeriodUnit is a compile-time-only guarantee; a corrupted DB value (or a
+    // write path that doesn't re-validate) could still hand a bogus string to
+    // this function at runtime. It must fail loudly rather than silently
+    // treating anything that isn't "week" as "month".
+    expect(() => groupIntoCalendarPeriods([], "day" as PeriodUnit)).toThrow(/unsupported period unit/i);
+  });
 });
 
 describe("evaluatePeriod", () => {
@@ -54,5 +62,11 @@ describe("periodBounds", () => {
     const { start, end } = periodBounds(new Date("2026-09-09T00:00:00Z"), "month");
     expect(start.toISOString().slice(0, 10)).toBe("2026-09-01");
     expect(end.toISOString().slice(0, 10)).toBe("2026-09-30");
+  });
+
+  it("throws for an invalid period unit instead of silently falling back to month bounds", () => {
+    expect(() => periodBounds(new Date("2026-09-09T00:00:00Z"), "day" as PeriodUnit)).toThrow(
+      /unsupported period unit/i
+    );
   });
 });

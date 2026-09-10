@@ -7,18 +7,23 @@ function monthKey(dateStr: string): string {
 }
 
 export function groupIntoCalendarPeriods(entries: DayEntry[], unit: PeriodUnit): DayEntry[][] {
-  if (unit === "week") {
-    return groupIntoWeeks(entries);
+  switch (unit) {
+    case "week":
+      return groupIntoWeeks(entries);
+    case "month": {
+      const periods = new Map<string, DayEntry[]>();
+      for (const entry of entries) {
+        const key = monthKey(entry.date);
+        if (!periods.has(key)) periods.set(key, []);
+        periods.get(key)!.push(entry);
+      }
+      return Array.from(periods.keys())
+        .sort()
+        .map((key) => periods.get(key)!);
+    }
+    default:
+      throw new Error(`Unsupported period unit: ${unit}`);
   }
-  const periods = new Map<string, DayEntry[]>();
-  for (const entry of entries) {
-    const key = monthKey(entry.date);
-    if (!periods.has(key)) periods.set(key, []);
-    periods.get(key)!.push(entry);
-  }
-  return Array.from(periods.keys())
-    .sort()
-    .map((key) => periods.get(key)!);
 }
 
 export function evaluatePeriod(period: DayEntry[], target: number): boolean {
@@ -26,16 +31,22 @@ export function evaluatePeriod(period: DayEntry[], target: number): boolean {
 }
 
 export function periodBounds(date: Date, unit: PeriodUnit): { start: Date; end: Date } {
-  if (unit === "month") {
-    const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-    const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
-    return { start, end };
+  switch (unit) {
+    case "month": {
+      const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+      const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
+      return { start, end };
+    }
+    case "week": {
+      const dayOfWeek = date.getUTCDay(); // 0=Sun..6=Sat
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      start.setUTCDate(start.getUTCDate() + diffToMonday);
+      const end = new Date(start);
+      end.setUTCDate(start.getUTCDate() + 6);
+      return { start, end };
+    }
+    default:
+      throw new Error(`Unsupported period unit: ${unit}`);
   }
-  const dayOfWeek = date.getUTCDay(); // 0=Sun..6=Sat
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  start.setUTCDate(start.getUTCDate() + diffToMonday);
-  const end = new Date(start);
-  end.setUTCDate(start.getUTCDate() + 6);
-  return { start, end };
 }
