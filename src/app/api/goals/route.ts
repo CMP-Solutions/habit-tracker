@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { utcToday } from "@/lib/domain/window";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -12,12 +13,31 @@ export async function GET() {
     include: { category: true },
     orderBy: { createdAt: "asc" },
   });
-  return NextResponse.json(goals);
+
+  // Today's entry per goal, so the dashboard can seed an already-checked-in
+  // state. Entries are stored at UTC midnight, so "today" is the server's UTC
+  // date — consistent with how entries are written (known timezone limitation).
+  const today = utcToday();
+  const todaysEntries = await db.entry.findMany({
+    where: { goalId: { in: goals.map((g) => g.id) }, date: today },
+  });
+  const entryByGoal = new Map(todaysEntries.map((e) => [e.goalId, e]));
+
+  return NextResponse.json(
+    goals.map((goal) => {
+      const entry = entryByGoal.get(goal.id);
+      return {
+        ...goal,
+        todayEntry: entry ? { done: entry.done, value: entry.value } : null,
+      };
+    })
+  );
 }
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id: string }).id;
 
   const body = await req.json();
   const { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId } = body;
@@ -31,10 +51,19 @@ export async function POST(req: Request) {
   if (periodicity === "weekly" && (weeklyThreshold === undefined || weeklyThreshold === null)) {
     return NextResponse.json({ error: "weeklyThreshold is required for weekly goals." }, { status: 400 });
   }
+  // A category may only be referenced by its owner — otherwise another user's
+  // category name/color would be echoed back through GET /api/goals.
+  const normalizedCategoryId: string | null = categoryId ? String(categoryId) : null;
+  if (normalizedCategoryId) {
+    const category = await db.category.findFirst({ where: { id: normalizedCategoryId, userId } });
+    if (!category) {
+      return NextResponse.json({ error: "Invalid category." }, { status: 400 });
+    }
+  }
 
   const goal = await db.goal.create({
     data: {
-      userId: (session.user as { id: string }).id,
+      userId,
       title,
       description,
       type,
@@ -42,7 +71,7 @@ export async function POST(req: Request) {
       targetValue,
       periodicity,
       weeklyThreshold,
-      categoryId,
+      categoryId: normalizedCategoryId,
     },
   });
   return NextResponse.json(goal, { status: 201 });

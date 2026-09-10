@@ -16,9 +16,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const body = await req.json();
   const { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId, archived } = body;
+
+  // A category may only be referenced by its owner (cross-tenant data leak).
+  // `undefined` leaves the category unchanged; `null`/"" clears it.
+  const normalizedCategoryId =
+    categoryId === undefined ? undefined : categoryId ? String(categoryId) : null;
+  if (normalizedCategoryId) {
+    const category = await db.category.findFirst({ where: { id: normalizedCategoryId, userId } });
+    if (!category) {
+      return NextResponse.json({ error: "Invalid category." }, { status: 400 });
+    }
+  }
+
   const goal = await db.goal.update({
     where: { id },
-    data: { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId, archived },
+    data: {
+      title,
+      description,
+      type,
+      unit,
+      targetValue,
+      periodicity,
+      weeklyThreshold,
+      categoryId: normalizedCategoryId,
+      archived,
+    },
   });
   return NextResponse.json(goal);
 }
