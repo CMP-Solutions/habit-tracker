@@ -23,6 +23,7 @@ export default function GoalDetailPage() {
         setError(body.error ?? "Ziel nicht gefunden.");
         return;
       }
+      setError(null);
       setData(await res.json());
     });
   }, [params.id]);
