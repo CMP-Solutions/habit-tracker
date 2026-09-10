@@ -29,7 +29,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   // Densify to real calendar days: a day without an entry is a failed day, so
   // that the rolling 7-day success rate is a true 7-calendar-day window.
-  const from = goal.createdAt > since ? goal.createdAt : since;
+  // Truncate createdAt to its UTC day first: a goal created today at 10:00
+  // would otherwise compare as later than today's midnight and yield no days.
+  const createdDay = utcToday(goal.createdAt);
+  const from = createdDay > since ? createdDay : since;
   const results = from > today
     ? []
     : densifyDailyResults(
