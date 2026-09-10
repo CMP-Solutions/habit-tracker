@@ -15,7 +15,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const body = await req.json();
-  const goal = await db.goal.update({ where: { id }, data: body });
+  const { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId, archived } = body;
+  const goal = await db.goal.update({
+    where: { id },
+    data: { title, description, type, unit, targetValue, periodicity, weeklyThreshold, categoryId, archived },
+  });
   return NextResponse.json(goal);
 }
 
