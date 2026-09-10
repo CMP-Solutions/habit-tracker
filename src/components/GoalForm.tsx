@@ -17,7 +17,9 @@ export function GoalForm() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"boolean" | "quantitative">("boolean");
-  const [periodicity, setPeriodicity] = useState<"daily" | "weekly">("daily");
+  const [periodicity, setPeriodicity] = useState<"daily" | "weekly" | "count_per_period">("daily");
+  const [periodUnit, setPeriodUnit] = useState<"week" | "month">("week");
+  const [periodTarget, setPeriodTarget] = useState("");
   const [unit, setUnit] = useState("");
   const [targetValue, setTargetValue] = useState("");
   const [weeklyThreshold, setWeeklyThreshold] = useState("");
@@ -27,6 +29,13 @@ export function GoalForm() {
   useEffect(() => {
     fetch("/api/categories").then((res) => res.json()).then(setCategories);
   }, []);
+
+  function handleTypeChange(v: "boolean" | "quantitative") {
+    setType(v);
+    if (v === "quantitative" && periodicity === "count_per_period") {
+      setPeriodicity("daily");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +49,8 @@ export function GoalForm() {
         unit: type === "quantitative" ? unit : undefined,
         targetValue: type === "quantitative" ? Number(targetValue) : undefined,
         weeklyThreshold: periodicity === "weekly" ? Number(weeklyThreshold) : undefined,
+        periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
+        periodTarget: periodicity === "count_per_period" ? Number(periodTarget) : undefined,
         categoryId,
       }),
     });
@@ -60,7 +71,7 @@ export function GoalForm() {
 
       <div className="space-y-2">
         <Label>Typ</Label>
-        <Select value={type} onValueChange={(v) => setType(v as "boolean" | "quantitative")}>
+        <Select value={type} onValueChange={(v) => handleTypeChange(v as "boolean" | "quantitative")}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="boolean">Erledigt / nicht erledigt</SelectItem>
@@ -84,11 +95,12 @@ export function GoalForm() {
 
       <div className="space-y-2">
         <Label>Periodizität</Label>
-        <Select value={periodicity} onValueChange={(v) => setPeriodicity(v as "daily" | "weekly")}>
+        <Select value={periodicity} onValueChange={(v) => setPeriodicity(v as "daily" | "weekly" | "count_per_period")}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="daily">Täglich</SelectItem>
             <SelectItem value="weekly">Wöchentlich</SelectItem>
+            {type === "boolean" && <SelectItem value="count_per_period">X-mal pro Zeitraum</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -97,6 +109,25 @@ export function GoalForm() {
         <div className="space-y-2">
           <Label htmlFor="weeklyThreshold">An wie vielen von 7 Tagen mindestens?</Label>
           <Input id="weeklyThreshold" type="number" min={1} max={7} value={weeklyThreshold} onChange={(e) => setWeeklyThreshold(e.target.value)} required />
+        </div>
+      )}
+
+      {periodicity === "count_per_period" && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Zeitraum</Label>
+            <Select value={periodUnit} onValueChange={(v) => setPeriodUnit(v as "week" | "month")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Woche</SelectItem>
+                <SelectItem value="month">Monat</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="periodTarget">Wie oft?</Label>
+            <Input id="periodTarget" type="number" min={1} value={periodTarget} onChange={(e) => setPeriodTarget(e.target.value)} required />
+          </div>
         </div>
       )}
 
