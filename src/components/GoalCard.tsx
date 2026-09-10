@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { ProgressRing } from "@/components/ProgressRing";
 import { todayLocalDate } from "@/lib/date";
 
 interface Goal {
@@ -52,7 +53,8 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
           }}
         />
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <ProgressRing value={Number(value) || 0} target={goal.targetValue ?? 0} unit={goal.unit} />
           <Input
             type="number"
             className="w-20"
