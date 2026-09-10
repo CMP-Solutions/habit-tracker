@@ -60,7 +60,11 @@ export async function POST(req: Request) {
       date: week[0].date,
       success: evaluateWeek(week, goal.weeklyThreshold as number),
     }));
-  } else if (goal.periodicity === "count_per_period" && goal.periodUnit != null && goal.periodTarget != null) {
+  } else if (
+    goal.periodicity === "count_per_period" &&
+    (goal.periodUnit === "week" || goal.periodUnit === "month") &&
+    goal.periodTarget != null
+  ) {
     const periods = groupIntoCalendarPeriods(
       dailyResults.map((d) => ({ date: d.date, success: d.success })),
       goal.periodUnit as PeriodUnit
