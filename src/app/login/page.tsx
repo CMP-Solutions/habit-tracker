@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,12 @@ export default function LoginPage() {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <Button type="submit" className="w-full">Anmelden</Button>
       </form>
+      <p className="text-sm text-muted-foreground">
+        Noch kein Konto?{" "}
+        <Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">
+          Registrieren
+        </Link>
+      </p>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { todayLocalDate } from "@/lib/date";
 
 interface Goal {
   id: string;
@@ -13,19 +14,15 @@ interface Goal {
   unit: string | null;
   targetValue: number | null;
   category: { name: string; color: string } | null;
-}
-
-function todayLocalDate(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  todayEntry?: { done: boolean; value: number | null } | null;
 }
 
 export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => void }) {
-  const [done, setDone] = useState(false);
-  const [value, setValue] = useState("");
+  // Seed from today's persisted entry so a reload reflects an existing check-in.
+  const [done, setDone] = useState(goal.todayEntry?.done ?? false);
+  const [value, setValue] = useState(
+    goal.todayEntry?.value != null ? String(goal.todayEntry.value) : ""
+  );
 
   async function checkIn(newDone: boolean, newValue?: number) {
     const today = todayLocalDate();
