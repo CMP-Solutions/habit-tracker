@@ -68,4 +68,73 @@ describe("POST /api/entries", () => {
     const milestones = await db.milestone.findMany({ where: { goalId } });
     expect(milestones).toHaveLength(1);
   });
+
+  it("does not award a 7-day streak when a calendar day was skipped", async () => {
+    // Seven check-ins, but day 2026-09-07 is missing: the calendar streak is 1,
+    // not 7. Before densification the route saw seven consecutive `true` rows
+    // and falsely awarded the milestone.
+    const dates = [
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-05",
+      "2026-09-06",
+      "2026-09-08",
+    ];
+    let last: Response | undefined;
+    for (const date of dates) {
+      last = await POST(
+        new Request("http://localhost/api/entries", { method: "POST", body: JSON.stringify({ goalId, date, done: true }) })
+      );
+    }
+    const body = await last!.json();
+    expect(body.newMilestones).toEqual([]);
+    expect(await db.milestone.count({ where: { goalId } })).toBe(0);
+  });
+
+  it("treats a gap between two check-ins as a broken streak", async () => {
+    // Day 1 and day 10 only: the current streak is 1, so nothing is awarded and
+    // the gap days are counted as failures (see densify unit tests for the
+    // streak values themselves).
+    for (const date of ["2026-09-01", "2026-09-10"]) {
+      await POST(
+        new Request("http://localhost/api/entries", { method: "POST", body: JSON.stringify({ goalId, date, done: true }) })
+      );
+    }
+    const entries = await db.entry.findMany({ where: { goalId } });
+    expect(entries).toHaveLength(2);
+    expect(await db.milestone.count({ where: { goalId } })).toBe(0);
+  });
+
+  it("rejects a malformed date with 400", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/entries", {
+        method: "POST",
+        body: JSON.stringify({ goalId, date: "not-a-date", done: true }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/date/i);
+  });
+
+  it("rejects an impossible calendar date with 400", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/entries", {
+        method: "POST",
+        body: JSON.stringify({ goalId, date: "2026-02-31", done: true }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a missing goalId with 400", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/entries", {
+        method: "POST",
+        body: JSON.stringify({ date: "2026-09-10", done: true }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
 });

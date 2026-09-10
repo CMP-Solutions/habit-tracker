@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { densifyDailyResults } from "@/lib/domain/densify";
+import { HISTORY_WINDOW_DAYS, utcMidnightDaysAgo, utcToday } from "@/lib/domain/window";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -14,18 +16,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const since = new Date();
-  since.setDate(since.getDate() - 365);
+  // The window matches the Heatmap grid exactly (HISTORY_WINDOW_DAYS days back
+  // through today, inclusive), so no fetched entry is dropped and no cell is
+  // rendered for a day that was never fetched.
+  const since = utcMidnightDaysAgo(HISTORY_WINDOW_DAYS);
+  const today = utcToday();
 
   const entries = await db.entry.findMany({
     where: { goalId: goal.id, date: { gte: since } },
     orderBy: { date: "asc" },
   });
 
-  const results = entries.map((e) => ({
-    date: e.date.toISOString().slice(0, 10),
-    success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
-  }));
+  // Densify to real calendar days: a day without an entry is a failed day, so
+  // that the rolling 7-day success rate is a true 7-calendar-day window.
+  const from = goal.createdAt > since ? goal.createdAt : since;
+  const results = from > today
+    ? []
+    : densifyDailyResults(
+        entries.map((e) => ({
+          date: e.date,
+          success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+        })),
+        from,
+        today
+      );
 
   const milestones = await db.milestone.findMany({ where: { goalId: goal.id }, orderBy: { achievedAt: "asc" } });
 
