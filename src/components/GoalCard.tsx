@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -39,7 +40,9 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
   return (
     <div className="flex items-center justify-between rounded-lg border p-4">
       <div className="space-y-1">
-        <p className="font-medium">{goal.title}</p>
+        <Link href={`/goals/${goal.id}`} className="font-medium hover:underline">
+          {goal.title}
+        </Link>
         {goal.category && <CategoryBadge name={goal.category.name} color={goal.category.color} />}
       </div>
       {goal.type === "boolean" ? (
