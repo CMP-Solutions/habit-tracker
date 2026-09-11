@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Home, CalendarDays, BarChart3, Trophy, Settings, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Home, CalendarDays, BarChart3, Trophy, Settings, LogOut, Plus } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 const LINKS = [
   { href: "/", label: "Heute", icon: Home },
@@ -41,6 +41,9 @@ export function NavBar() {
             );
           })}
         </div>
+        <Link href="/goals/new" className={buttonVariants({ size: "sm", className: "shrink-0" })}>
+          <Plus /> Neues Ziel
+        </Link>
         <Button variant="ghost" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/login" })}>
           Abmelden
         </Button>
@@ -55,25 +58,45 @@ export function NavBar() {
       </nav>
 
       {/* ...plus a fixed icon tab bar for navigation, the standard mobile
-          pattern for a small fixed set of top-level destinations. */}
+          pattern for a small fixed set of top-level destinations. "Neues
+          Ziel" is an action, not a destination, so it's always
+          primary-colored rather than toggling on pathname match. */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-card/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
-        {LINKS.map((link) => {
-          const active = pathname === link.href;
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
-                active ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              <Icon className="size-5" />
-              {link.label}
-            </Link>
-          );
-        })}
+        {LINKS.slice(0, 2).map((link) => (
+          <TabLink key={link.href} link={link} active={pathname === link.href} />
+        ))}
+        <Link
+          href="/goals/new"
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] text-primary transition-colors"
+        >
+          <Plus className="size-5" />
+          Neu
+        </Link>
+        {LINKS.slice(2).map((link) => (
+          <TabLink key={link.href} link={link} active={pathname === link.href} />
+        ))}
       </nav>
     </>
+  );
+}
+
+function TabLink({
+  link,
+  active,
+}: {
+  link: { href: string; label: string; icon: typeof Home };
+  active: boolean;
+}) {
+  const Icon = link.icon;
+  return (
+    <Link
+      href={link.href}
+      className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+        active ? "text-primary" : "text-muted-foreground"
+      }`}
+    >
+      <Icon className="size-5" />
+      {link.label}
+    </Link>
   );
 }
