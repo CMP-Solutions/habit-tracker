@@ -6,11 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GOAL_ICONS, type GoalIcon } from "@/lib/domain/goalIcons";
+import { GOAL_ICONS, isGoalIcon, type GoalIcon } from "@/lib/domain/goalIcons";
 
 interface Category {
   id: string;
   name: string;
+}
+
+export interface ExistingGoal {
+  id: string;
+  title: string;
+  icon: string | null;
+  type: "boolean" | "quantitative";
+  unit: string | null;
+  targetValue: number | null;
+  periodicity: "daily" | "weekly" | "count_per_period";
+  weeklyThreshold: number | null;
+  periodUnit: "week" | "month" | null;
+  periodTarget: number | null;
+  categoryId: string | null;
 }
 
 function ToggleGroup<T extends string>({
@@ -62,19 +76,21 @@ function IconPicker({ value, onChange }: { value: GoalIcon | null; onChange: (ic
   );
 }
 
-export function GoalForm() {
+export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [title, setTitle] = useState("");
-  const [icon, setIcon] = useState<GoalIcon | null>(null);
-  const [type, setType] = useState<"boolean" | "quantitative">("boolean");
-  const [periodicity, setPeriodicity] = useState<"daily" | "weekly" | "count_per_period">("daily");
-  const [periodUnit, setPeriodUnit] = useState<"week" | "month">("week");
-  const [periodTarget, setPeriodTarget] = useState("");
-  const [unit, setUnit] = useState("");
-  const [targetValue, setTargetValue] = useState("");
-  const [weeklyThreshold, setWeeklyThreshold] = useState("");
-  const [categoryId, setCategoryId] = useState<string | undefined>();
+  const [title, setTitle] = useState(existingGoal?.title ?? "");
+  const [icon, setIcon] = useState<GoalIcon | null>(
+    existingGoal?.icon && isGoalIcon(existingGoal.icon) ? existingGoal.icon : null
+  );
+  const [type, setType] = useState<"boolean" | "quantitative">(existingGoal?.type ?? "boolean");
+  const [periodicity, setPeriodicity] = useState(existingGoal?.periodicity ?? "daily");
+  const [periodUnit, setPeriodUnit] = useState<"week" | "month">(existingGoal?.periodUnit ?? "week");
+  const [periodTarget, setPeriodTarget] = useState(existingGoal?.periodTarget?.toString() ?? "");
+  const [unit, setUnit] = useState(existingGoal?.unit ?? "");
+  const [targetValue, setTargetValue] = useState(existingGoal?.targetValue?.toString() ?? "");
+  const [weeklyThreshold, setWeeklyThreshold] = useState(existingGoal?.weeklyThreshold?.toString() ?? "");
+  const [categoryId, setCategoryId] = useState<string | undefined>(existingGoal?.categoryId ?? undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,8 +107,8 @@ export function GoalForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await fetch("/api/goals", {
-      method: "POST",
+    const res = await fetch(existingGoal ? `/api/goals/${existingGoal.id}` : "/api/goals", {
+      method: existingGoal ? "PATCH" : "POST",
       body: JSON.stringify({
         title,
         icon,
@@ -108,10 +124,10 @@ export function GoalForm() {
     });
     if (!res.ok) {
       const body = await res.json();
-      setError(body.error ?? "Fehler beim Anlegen.");
+      setError(body.error ?? "Fehler beim Speichern.");
       return;
     }
-    router.push("/");
+    router.push(existingGoal ? `/goals/${existingGoal.id}` : "/");
   }
 
   return (
@@ -208,7 +224,7 @@ export function GoalForm() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" className="w-full">Ziel anlegen</Button>
+      <Button type="submit" className="w-full">{existingGoal ? "Speichern" : "Ziel anlegen"}</Button>
     </form>
   );
 }

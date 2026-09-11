@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Trophy } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Trophy } from "lucide-react";
 import { Heatmap } from "@/components/Heatmap";
 import { TrendChart } from "@/components/TrendChart";
+import { buttonVariants } from "@/components/ui/button";
 
 interface HistoryResponse {
   goal: { title: string; icon: string | null };
@@ -34,10 +36,15 @@ export default function GoalDetailPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
-      <h1 className="flex items-center gap-3 font-heading text-3xl">
-        {data.goal.icon && <span className="text-2xl leading-none">{data.goal.icon}</span>}
-        {data.goal.title}
-      </h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="flex items-center gap-3 font-heading text-3xl">
+          {data.goal.icon && <span className="text-2xl leading-none">{data.goal.icon}</span>}
+          {data.goal.title}
+        </h1>
+        <Link href={`/goals/${params.id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <Pencil /> Bearbeiten
+        </Link>
+      </div>
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Letzte 12 Monate</h2>

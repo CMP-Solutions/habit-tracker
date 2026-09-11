@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isGoalIcon } from "@/lib/domain/goalIcons";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -18,6 +19,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const {
     title,
     description,
+    icon,
     type,
     unit,
     targetValue,
@@ -28,6 +30,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     categoryId,
     archived,
   } = body;
+
+  if (icon !== undefined && icon !== null && !isGoalIcon(icon)) {
+    return NextResponse.json({ error: "icon must be one of the supported goal icons." }, { status: 400 });
+  }
 
   if (periodicity === "count_per_period") {
     const effectiveType = type ?? existing.type;
@@ -58,6 +64,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data: {
       title,
       description,
+      icon,
       type,
       unit,
       targetValue,
