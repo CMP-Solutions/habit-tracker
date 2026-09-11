@@ -10,7 +10,7 @@ export async function GET() {
 
   const milestones = await db.milestone.findMany({
     where: { goal: { userId } },
-    include: { goal: { select: { title: true } } },
+    include: { goal: { select: { title: true, icon: true } } },
     orderBy: { achievedAt: "desc" },
   });
   return NextResponse.json(milestones);

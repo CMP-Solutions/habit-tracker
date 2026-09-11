@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { utcToday } from "@/lib/domain/window";
 import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
+import { isGoalIcon } from "@/lib/domain/goalIcons";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     periodUnit,
     periodTarget,
     categoryId,
+    icon,
   } = body;
 
   if (
@@ -74,6 +76,9 @@ export async function POST(req: Request) {
     !["daily", "weekly", "count_per_period"].includes(periodicity)
   ) {
     return NextResponse.json({ error: "title, valid type and periodicity are required." }, { status: 400 });
+  }
+  if (icon !== undefined && icon !== null && !isGoalIcon(icon)) {
+    return NextResponse.json({ error: "icon must be one of the supported goal icons." }, { status: 400 });
   }
   if (type === "quantitative" && (targetValue === undefined || targetValue === null)) {
     return NextResponse.json({ error: "targetValue is required for quantitative goals." }, { status: 400 });
@@ -115,6 +120,7 @@ export async function POST(req: Request) {
       periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
       periodTarget: periodicity === "count_per_period" ? periodTarget : undefined,
       categoryId: normalizedCategoryId,
+      icon: icon ?? undefined,
     },
   });
   return NextResponse.json(goal, { status: 201 });
