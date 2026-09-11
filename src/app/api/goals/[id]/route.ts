@@ -24,6 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     type,
     unit,
     targetValue,
+    step,
     periodicity,
     weeklyThreshold,
     periodUnit,
@@ -35,6 +36,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (icon !== undefined && icon !== null && !isGoalIcon(icon)) {
     return NextResponse.json({ error: "icon must be one of the supported goal icons." }, { status: 400 });
+  }
+  if (step !== undefined && (typeof step !== "number" || !(step > 0))) {
+    return NextResponse.json({ error: "step must be a positive number." }, { status: 400 });
   }
 
   // `undefined` leaves the end date unchanged; `null`/"" clears it (ongoing again).
@@ -76,6 +80,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       type,
       unit,
       targetValue,
+      step,
       periodicity,
       weeklyThreshold,
       periodUnit,

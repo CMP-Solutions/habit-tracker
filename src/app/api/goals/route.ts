@@ -69,6 +69,7 @@ export async function POST(req: Request) {
     type,
     unit,
     targetValue,
+    step,
     periodicity,
     weeklyThreshold,
     periodUnit,
@@ -95,6 +96,9 @@ export async function POST(req: Request) {
   }
   if (type === "quantitative" && (targetValue === undefined || targetValue === null)) {
     return NextResponse.json({ error: "targetValue is required for quantitative goals." }, { status: 400 });
+  }
+  if (step !== undefined && (typeof step !== "number" || !(step > 0))) {
+    return NextResponse.json({ error: "step must be a positive number." }, { status: 400 });
   }
   if (periodicity === "weekly" && (weeklyThreshold === undefined || weeklyThreshold === null)) {
     return NextResponse.json({ error: "weeklyThreshold is required for weekly goals." }, { status: 400 });
@@ -128,6 +132,7 @@ export async function POST(req: Request) {
       type,
       unit,
       targetValue,
+      step: type === "quantitative" ? (step ?? 1) : undefined,
       periodicity,
       weeklyThreshold,
       periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,

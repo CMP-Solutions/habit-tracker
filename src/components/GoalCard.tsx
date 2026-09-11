@@ -17,6 +17,7 @@ interface Goal {
   type: "boolean" | "quantitative";
   unit: string | null;
   targetValue: number | null;
+  step: number;
   category: { name: string; color: string } | null;
   todayEntry?: { done: boolean; value: number | null } | null;
   periodProgress?: { current: number; target: number } | null;
@@ -88,7 +89,10 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
     checkIn(reachedTarget, numeric);
   }
 
-  function handleValueChange(raw: string) {
+  function handleValueChange(rawInput: string) {
+    // The number input's min attribute only affects the spinner arrows, not
+    // typed/pasted input, so negative values are clamped here too.
+    const raw = Number(rawInput) < 0 ? "0" : rawInput;
     setValue(raw);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => commitValue(raw), AUTO_SAVE_DELAY_MS);
@@ -150,6 +154,8 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
             <Input
               type="number"
               className="w-20 font-mono"
+              min={0}
+              step={goal.step}
               value={value}
               onChange={(e) => handleValueChange(e.target.value)}
               onBlur={handleBlur}

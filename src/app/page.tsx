@@ -15,6 +15,7 @@ interface Goal {
   type: "boolean" | "quantitative";
   unit: string | null;
   targetValue: number | null;
+  step: number;
   category: { name: string; color: string } | null;
   todayEntry: { done: boolean; value: number | null } | null;
   periodProgress: { current: number; target: number } | null;

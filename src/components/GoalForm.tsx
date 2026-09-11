@@ -26,6 +26,7 @@ export interface ExistingGoal {
   periodTarget: number | null;
   categoryId: string | null;
   endDate: string | null;
+  step: number;
 }
 
 function ToggleGroup<T extends string>({
@@ -90,6 +91,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
   const [periodTarget, setPeriodTarget] = useState(existingGoal?.periodTarget?.toString() ?? "");
   const [unit, setUnit] = useState(existingGoal?.unit ?? "");
   const [targetValue, setTargetValue] = useState(existingGoal?.targetValue?.toString() ?? "");
+  const [step, setStep] = useState(existingGoal?.step?.toString() ?? "1");
   const [weeklyThreshold, setWeeklyThreshold] = useState(existingGoal?.weeklyThreshold?.toString() ?? "");
   const [categoryId, setCategoryId] = useState<string | undefined>(existingGoal?.categoryId ?? undefined);
   const [duration, setDuration] = useState<"ongoing" | "ends">(existingGoal?.endDate ? "ends" : "ongoing");
@@ -119,6 +121,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
         periodicity,
         unit: type === "quantitative" ? unit : undefined,
         targetValue: type === "quantitative" ? Number(targetValue) : undefined,
+        step: type === "quantitative" ? Number(step) : undefined,
         weeklyThreshold: periodicity === "weekly" ? Number(weeklyThreshold) : undefined,
         periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
         periodTarget: periodicity === "count_per_period" ? Number(periodTarget) : undefined,
@@ -173,6 +176,19 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
           <div className="space-y-2">
             <Label htmlFor="unit">Einheit</Label>
             <Input id="unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="z.B. Liter" required />
+          </div>
+          <div className="col-span-2 space-y-2">
+            <Label htmlFor="step">Schrittgröße (z.B. 0.2 für 200 ml)</Label>
+            <Input
+              id="step"
+              type="number"
+              className="font-mono"
+              min={0.001}
+              step="any"
+              value={step}
+              onChange={(e) => setStep(e.target.value)}
+              required
+            />
           </div>
         </div>
       )}

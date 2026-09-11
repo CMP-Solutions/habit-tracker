@@ -43,6 +43,7 @@ model Goal {
   type            String // "boolean" | "quantitative"
   unit            String?
   targetValue     Float?
+  step            Float       @default(1) // increment for the quantitative value input; only meaningful when type = "quantitative"
   periodicity     String // "daily" | "weekly" | "count_per_period"
   weeklyThreshold Int?
   periodUnit      String? // "week" | "month" — only set when periodicity = "count_per_period"

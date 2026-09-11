@@ -50,6 +50,7 @@ export async function GET() {
       type: goal.type,
       unit: goal.unit,
       targetValue: goal.targetValue,
+      step: goal.step,
       category: goal.category,
       entries: Object.fromEntries(
         days.map((day) => [day, entryByGoalAndDay.get(`${goal.id}_${day}`) ?? null])

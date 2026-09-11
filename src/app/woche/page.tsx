@@ -15,6 +15,7 @@ interface WeekGoal {
   type: "boolean" | "quantitative";
   unit: string | null;
   targetValue: number | null;
+  step: number;
   category: { name: string; color: string } | null;
   entries: Record<string, WeekEntry | null>;
 }
@@ -157,8 +158,15 @@ function WeekCell({
     <input
       type="number"
       disabled={isFuture}
+      min={0}
+      step={goal.step}
       value={value}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => {
+        // The min attribute only affects the spinner arrows, not
+        // typed/pasted input, so negative values are clamped here too.
+        const raw = e.target.value;
+        setValue(Number(raw) < 0 ? "0" : raw);
+      }}
       onBlur={() => {
         if (!value) return;
         const numeric = Number(value);
