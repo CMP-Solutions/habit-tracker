@@ -39,6 +39,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-celebrate-foreground: var(--celebrate-foreground);
+  --color-celebrate: var(--celebrate);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -87,12 +89,21 @@
   --sidebar-accent-foreground: oklch(0.36 0.055 196);
   --sidebar-border: oklch(0.912 0.005 210);
   --sidebar-ring: oklch(0.6 0.06 196);
+  /* Warm accent reserved for one thing only: the moment a goal is completed
+     for the day. Everywhere else stays petrol/neutral so this stays a real
+     signal instead of decoration. */
+  --celebrate: oklch(0.8 0.13 85);
+  --celebrate-foreground: oklch(0.28 0.06 85);
 }
 
 .dark {
-  --background: oklch(0.185 0.012 225);
+  /* Transparent so the fixed aurora layer (see .aurora-bg) shows through
+     everywhere that isn't a glass card. */
+  --background: transparent;
   --foreground: oklch(0.945 0.005 210);
-  --card: oklch(0.228 0.013 225);
+  /* Frosted glass panel: translucent + paired with backdrop-blur-xl on the
+     elements that use bg-card, so the aurora blurs through them. */
+  --card: oklch(0.32 0.02 225 / 55%);
   --card-foreground: oklch(0.945 0.005 210);
   --popover: oklch(0.228 0.013 225);
   --popover-foreground: oklch(0.945 0.005 210);
@@ -113,6 +124,10 @@
   --chart-3: oklch(0.56 0.075 196);
   --chart-4: oklch(0.67 0.085 196);
   --chart-5: oklch(0.8 0.075 196);
+  --celebrate: oklch(0.75 0.13 85);
+  --celebrate-foreground: oklch(0.97 0.03 90);
+  /* Only used by the aurora background blobs, never as a UI/text color. */
+  --aurora-violet: oklch(0.58 0.16 300);
   --sidebar: oklch(0.21 0.013 225);
   --sidebar-foreground: oklch(0.945 0.005 210);
   --sidebar-primary: oklch(0.755 0.085 196);
@@ -137,5 +152,101 @@
   h2,
   h3 {
     @apply font-heading font-normal tracking-tight;
+  }
+}
+
+/* One deliberate motion moment: a goal being checked off for the day.
+   Kept out of @layer so its specificity isn't affected by layer ordering. */
+@keyframes goal-complete-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Ambient background: three blurred, screen-blended color fields that drift
+   slowly behind the app. Fixed + negative z-index so it never scrolls or
+   intercepts clicks; --background is transparent in dark mode so page
+   content sits directly on top of it, and glass cards (bg-card +
+   backdrop-blur-xl) blur it further. */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: oklch(0.16 0.02 250);
+}
+
+.aurora-blob {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 9999px;
+  filter: blur(110px);
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+.aurora-blob-1 {
+  top: -20%;
+  left: -15%;
+  background: var(--primary);
+  opacity: 0.5;
+  animation: aurora-drift-1 42s ease-in-out infinite alternate;
+}
+
+.aurora-blob-2 {
+  bottom: -25%;
+  right: -15%;
+  background: var(--aurora-violet);
+  opacity: 0.45;
+  animation: aurora-drift-2 50s ease-in-out infinite alternate;
+}
+
+.aurora-blob-3 {
+  top: 25%;
+  right: 10%;
+  width: 45vmax;
+  height: 45vmax;
+  background: var(--celebrate);
+  opacity: 0.28;
+  animation: aurora-drift-3 58s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift-1 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(10%, 12%) scale(1.15);
+  }
+}
+
+@keyframes aurora-drift-2 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-10%, -10%) scale(1.1);
+  }
+}
+
+@keyframes aurora-drift-3 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-8%, 14%) scale(1.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob {
+    animation: none;
   }
 }

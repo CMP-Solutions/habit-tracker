@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import { AuroraBackground } from "@/components/AuroraBackground";
 import { NavBar } from "@/components/NavBar";
 import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
 import "./globals.css";
@@ -35,12 +36,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${bodySans.variable} ${displaySerif.variable} ${codeMono.variable} h-full antialiased`}
+      className={`${bodySans.variable} ${displaySerif.variable} ${codeMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <AuroraBackground />
         <SessionProviderWrapper>
           <NavBar />
-          {children}
+          {/* Bottom padding clears the fixed mobile tab bar (see NavBar);
+              harmless on /login and /register, which render neither. */}
+          <div className="pb-16 sm:pb-0">{children}</div>
         </SessionProviderWrapper>
       </body>
     </html>
