@@ -12,6 +12,9 @@ interface HistoryResponse {
   goal: { title: string; icon: string | null; endDate: string | null };
   results: { date: string; success: boolean }[];
   milestones: { type: string; threshold: number; achievedAt: string }[];
+  currentStreak: number;
+  longestStreak: number;
+  totalSuccessCount: number;
 }
 
 export default function GoalDetailPage() {
@@ -51,6 +54,21 @@ export default function GoalDetailPage() {
         <Link href={`/goals/${params.id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>
           <Pencil /> Bearbeiten
         </Link>
+      </div>
+
+      <div className="flex gap-8 rounded-xl border bg-card p-4 backdrop-blur-xl">
+        <div>
+          <p className="font-mono text-2xl tabular-nums text-primary">{data.currentStreak}</p>
+          <p className="text-xs text-muted-foreground">aktuelle Serie</p>
+        </div>
+        <div>
+          <p className="font-mono text-2xl tabular-nums text-foreground">{data.longestStreak}</p>
+          <p className="text-xs text-muted-foreground">längste Serie</p>
+        </div>
+        <div>
+          <p className="font-mono text-2xl tabular-nums text-foreground">{data.totalSuccessCount}</p>
+          <p className="text-xs text-muted-foreground">insgesamt geschafft</p>
+        </div>
       </div>
 
       <section className="space-y-2">

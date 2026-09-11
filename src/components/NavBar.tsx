@@ -52,7 +52,15 @@ export function NavBar() {
       {/* Phone: compact top bar (logo + logout)... */}
       <nav className="sticky top-0 z-40 flex items-center justify-between border-b bg-card/60 px-4 py-3 backdrop-blur-xl sm:hidden">
         <span className="font-heading text-lg text-foreground">Ritual</span>
-        <Button variant="ghost" size="icon-sm" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Abmelden">
+        {/* The only way to log out on phone — sized to the 44px touch-target
+            floor rather than the icon-sm token, which measures 28px. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="size-11"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          aria-label="Abmelden"
+        >
           <LogOut />
         </Button>
       </nav>
@@ -67,9 +75,14 @@ export function NavBar() {
         ))}
         <Link
           href="/goals/new"
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] text-primary transition-colors"
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground transition-colors"
         >
-          <Plus className="size-5" />
+          {/* A filled badge, not a text color, marks this as an action button —
+              plain primary text would be indistinguishable from an active
+              destination tab (see the mobile-adaptation critique finding). */}
+          <span className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Plus className="size-4" />
+          </span>
           Neu
         </Link>
         {LINKS.slice(2).map((link) => (
@@ -91,7 +104,7 @@ function TabLink({
   return (
     <Link
       href={link.href}
-      className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+      className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors ${
         active ? "text-primary" : "text-muted-foreground"
       }`}
     >

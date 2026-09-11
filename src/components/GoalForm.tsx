@@ -13,6 +13,19 @@ interface Category {
   name: string;
 }
 
+// SelectValue doesn't reliably mirror the matching SelectItem's text for a
+// fixed enum trigger — it can render the raw value ("daily") instead of the
+// label ("Täglich") — so these triggers render their own label explicitly.
+const PERIODICITY_LABELS: Record<string, string> = {
+  daily: "Täglich",
+  weekly: "Wöchentlich",
+  count_per_period: "Mehrmals in einem Zeitraum",
+};
+const PERIOD_UNIT_LABELS: Record<string, string> = {
+  week: "Woche",
+  month: "Monat",
+};
+
 export interface ExistingGoal {
   id: string;
   title: string;
@@ -196,7 +209,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
       <div className="space-y-2">
         <Label>Wie oft?</Label>
         <Select value={periodicity} onValueChange={(v) => setPeriodicity(v as "daily" | "weekly" | "count_per_period")}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger><SelectValue>{(v: string) => PERIODICITY_LABELS[v] ?? v}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="daily">Täglich</SelectItem>
             <SelectItem value="weekly">Wöchentlich</SelectItem>
@@ -217,7 +230,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
           <div className="space-y-2">
             <Label>Zeitraum</Label>
             <Select value={periodUnit} onValueChange={(v) => setPeriodUnit(v as "week" | "month")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{(v: string) => PERIOD_UNIT_LABELS[v] ?? v}</SelectValue></SelectTrigger>
               <SelectContent>
                 <SelectItem value="week">Woche</SelectItem>
                 <SelectItem value="month">Monat</SelectItem>

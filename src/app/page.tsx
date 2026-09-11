@@ -19,6 +19,7 @@ interface Goal {
   category: { name: string; color: string } | null;
   todayEntry: { done: boolean; value: number | null } | null;
   periodProgress: { current: number; target: number } | null;
+  currentStreak: number;
 }
 
 const WEEKDAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "long" });

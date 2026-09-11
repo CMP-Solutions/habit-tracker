@@ -166,6 +166,7 @@ Cool, low-saturation neutrals (hue ~205–225) throughout, so the one warm hue (
 - **Body** (400, 0.875rem / `text-sm`): default interface text — buttons, inputs, descriptions.
 - **Label** (500, 0.875rem / `text-sm`, muted-foreground color): section eyebrows above content groups ("Ziele", "Letzte 12 Monate", "Meilensteine") — not uppercase, distinguished by color and weight alone.
 - **Mono** (400–500, sizes range `text-[10px]`–`text-3xl` depending on context, `tabular-nums`): every number the app shows — dates, streak counts, percentages, quantity inputs and their units — so figures align and read as data.
+- **Caption** (400, `text-[11px]`, muted/primary-foreground color): the phone bottom tab bar's labels only — the sole other type step outside the ramp above, kept at the WCAG-readability floor (10px measured below AA contrast at this size against the aurora and was raised).
 
 ### Named Rules
 **The Numbers-Are-Mono Rule.** Any character that is a digit representing measured data (a date, a streak, a percentage, a quantity) renders in IBM Plex Mono with `tabular-nums`. Prose never borrows the mono face, and numbers never borrow the sans or serif face.

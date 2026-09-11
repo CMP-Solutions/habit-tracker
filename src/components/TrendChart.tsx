@@ -37,7 +37,17 @@ export function TrendChart({ results, dailyPercents }: TrendChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={data}>
-        <XAxis dataKey="date" tick={false} stroke="var(--color-muted-foreground)" />
+        <XAxis
+          dataKey="date"
+          stroke="var(--color-muted-foreground)"
+          tickFormatter={(value: string) => {
+            const [, month, day] = value.split("-");
+            return `${day}.${month}.`;
+          }}
+          tick={{ fill: "var(--color-muted-foreground)", fontFamily: "var(--font-code)", fontSize: 11 }}
+          interval="preserveStartEnd"
+          minTickGap={40}
+        />
         <YAxis
           domain={[0, 100]}
           unit="%"

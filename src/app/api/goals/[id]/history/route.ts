@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { densifyDailyResults } from "@/lib/domain/densify";
 import { HISTORY_WINDOW_DAYS, utcMidnightDaysAgo, utcToday } from "@/lib/domain/window";
+import { calculateCurrentStreak, calculateLongestStreak, calculateTotalSuccessCount } from "@/lib/domain/streak";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -46,5 +47,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const milestones = await db.milestone.findMany({ where: { goalId: goal.id }, orderBy: { achievedAt: "asc" } });
 
-  return NextResponse.json({ goal, results, milestones });
+  // `results` truthfully shows an unchecked today as a gap (correct for the
+  // heatmap/trend), but that would zero out a real streak before the user
+  // has had a chance to check in today — drop today from the streak
+  // calculation unless it already has a recorded entry.
+  const hasTodayEntry = entries.some((e) => e.date.getTime() === today.getTime());
+  const streakResults = hasTodayEntry ? results : results.slice(0, -1);
+
+  return NextResponse.json({
+    goal,
+    results,
+    milestones,
+    // Surfaced so the UI can show the product's core promise (streaks) and
+    // so the delete confirmation can know upfront whether this goal will
+    // delete or archive, instead of finding out from a failed request.
+    entryCount: entries.length,
+    currentStreak: calculateCurrentStreak(streakResults),
+    longestStreak: calculateLongestStreak(results),
+    totalSuccessCount: calculateTotalSuccessCount(results),
+  });
 }

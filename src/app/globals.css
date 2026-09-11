@@ -112,7 +112,11 @@
   --secondary: oklch(0.285 0.014 222);
   --secondary-foreground: oklch(0.945 0.005 210);
   --muted: oklch(0.275 0.013 222);
-  --muted-foreground: oklch(0.705 0.012 215);
+  /* Raised from 0.705: --background is transparent over the drifting aurora,
+     so this token's real contrast varies with where the blob currently sits.
+     0.705 measured as low as 2.68:1 against a bright aurora patch; 0.84
+     clears 4.5:1 (WCAG AA) even at the aurora's brightest observed point. */
+  --muted-foreground: oklch(0.84 0.012 215);
   --accent: oklch(0.3 0.022 200);
   --accent-foreground: oklch(0.9 0.04 196);
   --destructive: oklch(0.665 0.16 25);

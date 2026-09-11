@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-import { Check } from "lucide-react";
+import { Check, Flame } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -21,6 +21,7 @@ interface Goal {
   category: { name: string; color: string } | null;
   todayEntry?: { done: boolean; value: number | null } | null;
   periodProgress?: { current: number; target: number } | null;
+  currentStreak: number;
 }
 
 // canvas-confetti paints on a raw 2D canvas and can't resolve CSS custom
@@ -118,7 +119,14 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
           {goal.icon && <span className="text-lg leading-none">{goal.icon}</span>}
           {goal.title}
         </Link>
-        {goal.category && <CategoryBadge name={goal.category.name} color={goal.category.color} />}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {goal.category && <CategoryBadge name={goal.category.name} color={goal.category.color} />}
+          {goal.currentStreak > 0 && (
+            <span className="flex items-center gap-1 font-mono text-xs text-primary">
+              <Flame className="size-3" /> {goal.currentStreak}
+            </span>
+          )}
+        </div>
         {goal.periodProgress && (
           <p className="font-mono text-xs text-muted-foreground">
             {goal.periodProgress.current} von {goal.periodProgress.target} diese Periode

@@ -7,6 +7,7 @@ import { GoalForm, type ExistingGoal } from "@/components/GoalForm";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -19,9 +20,9 @@ export default function EditGoalPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [goal, setGoal] = useState<ExistingGoal | null>(null);
+  const [entryCount, setEntryCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [hasEntries, setHasEntries] = useState(false);
 
   useEffect(() => {
     fetch(`/api/goals/${params.id}/history`).then(async (res) => {
@@ -32,37 +33,24 @@ export default function EditGoalPage() {
       }
       const data = await res.json();
       setGoal(data.goal);
+      setEntryCount(data.entryCount);
     });
   }, [params.id]);
 
-  async function handleDelete() {
-    setDeleteError(null);
-    const res = await fetch(`/api/goals/${params.id}`, { method: "DELETE" });
-    if (res.ok) {
-      router.push("/");
-      return;
-    }
-    if (res.status === 409) {
-      setHasEntries(true);
-      setDeleteError("Dieses Ziel hat bereits Einträge und kann nicht gelöscht werden. Archiviere es stattdessen.");
-      return;
-    }
-    const body = await res.json().catch(() => ({}));
-    setDeleteError(body.error ?? "Löschen fehlgeschlagen.");
-  }
+  const willArchive = entryCount > 0;
 
-  async function handleArchive() {
+  async function handleConfirm() {
     setDeleteError(null);
     const res = await fetch(`/api/goals/${params.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ archived: true }),
+      method: willArchive ? "PATCH" : "DELETE",
+      ...(willArchive ? { body: JSON.stringify({ archived: true }) } : {}),
     });
     if (res.ok) {
       router.push("/");
       return;
     }
     const body = await res.json().catch(() => ({}));
-    setDeleteError(body.error ?? "Archivieren fehlgeschlagen.");
+    setDeleteError(body.error ?? (willArchive ? "Archivieren fehlgeschlagen." : "Löschen fehlgeschlagen."));
   }
 
   if (error) return <main className="px-6 py-10 text-destructive">{error}</main>;
@@ -80,22 +68,21 @@ export default function EditGoalPage() {
               </Button>
             }
           />
-          <DialogContent>
+          <DialogContent role="alertdialog">
             <DialogHeader>
-              <DialogTitle>Ziel wirklich löschen?</DialogTitle>
+              <DialogTitle>{willArchive ? "Ziel archivieren?" : "Ziel wirklich löschen?"}</DialogTitle>
               <DialogDescription>
-                {hasEntries
-                  ? "Dieses Ziel hat bereits Einträge. Löschen ist nicht möglich, ohne die Historie zu verlieren — archiviere es stattdessen, um es aus der Übersicht auszublenden."
-                  : `„${goal.title}" wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.`}
+                {willArchive
+                  ? `„${goal.title}" hat bereits ${entryCount} ${entryCount === 1 ? "Eintrag" : "Einträge"}. Es wird archiviert statt gelöscht: es verschwindet aus Heute/Woche, deine bisherige Statistik und Meilensteine bleiben vollständig erhalten.`
+                  : `„${goal.title}" hat noch keine Einträge und wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.`}
               </DialogDescription>
             </DialogHeader>
             {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
             <DialogFooter>
-              {hasEntries ? (
-                <Button variant="default" onClick={handleArchive}>Archivieren</Button>
-              ) : (
-                <Button variant="destructive" onClick={handleDelete}>Endgültig löschen</Button>
-              )}
+              <DialogClose render={<Button variant="outline" autoFocus>Abbrechen</Button>} />
+              <Button variant={willArchive ? "default" : "destructive"} onClick={handleConfirm}>
+                {willArchive ? "Archivieren" : "Endgültig löschen"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

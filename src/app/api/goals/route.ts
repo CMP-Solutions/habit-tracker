@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { utcToday, parseUtcDateString } from "@/lib/domain/window";
+import { utcToday, utcMidnightDaysAgo, parseUtcDateString } from "@/lib/domain/window";
 import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
 import { isGoalIcon } from "@/lib/domain/goalIcons";
+import { densifyDailyResults } from "@/lib/domain/densify";
+import { calculateCurrentStreak } from "@/lib/domain/streak";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -45,6 +47,39 @@ export async function GET() {
     periodProgressByGoal.set(goal.id, { current, target: goal.periodTarget as number });
   }
 
+  // Current streak per goal, so the dashboard shows the product's core
+  // promise (how long a streak has run), not just today's checkbox state.
+  // Computed through yesterday, then today's already-fetched entry is added
+  // on top — otherwise an unchecked "today" would zero out a real streak
+  // before the user has even had a chance to check in.
+  const since = utcMidnightDaysAgo(60);
+  const yesterday = utcMidnightDaysAgo(1);
+  const streakByGoal = new Map<string, number>();
+  for (const goal of goals) {
+    const entries = await db.entry.findMany({ where: { goalId: goal.id, date: { gte: since, lt: today } } });
+    const createdDay = utcToday(goal.createdAt);
+    const from = createdDay > since ? createdDay : since;
+    const results = from > yesterday
+      ? []
+      : densifyDailyResults(
+          entries.map((e) => ({
+            date: e.date,
+            success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+          })),
+          from,
+          yesterday
+        );
+    let streak = calculateCurrentStreak(results);
+    const todayEntry = entryByGoal.get(goal.id);
+    const todaySuccess = todayEntry
+      ? goal.type === "boolean"
+        ? todayEntry.done
+        : (todayEntry.value ?? 0) >= (goal.targetValue ?? Infinity)
+      : false;
+    if (todaySuccess) streak++;
+    streakByGoal.set(goal.id, streak);
+  }
+
   return NextResponse.json(
     goals.map((goal) => {
       const entry = entryByGoal.get(goal.id);
@@ -52,6 +87,7 @@ export async function GET() {
         ...goal,
         todayEntry: entry ? { done: entry.done, value: entry.value } : null,
         periodProgress: periodProgressByGoal.get(goal.id) ?? null,
+        currentStreak: streakByGoal.get(goal.id) ?? 0,
       };
     })
   );
