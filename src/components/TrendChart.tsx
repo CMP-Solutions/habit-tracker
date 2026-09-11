@@ -20,10 +20,24 @@ export function TrendChart({ results }: { results: DayResult[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={data}>
-        <XAxis dataKey="date" tick={false} />
-        <YAxis domain={[0, 100]} unit="%" width={40} />
-        <Tooltip formatter={(value) => [`${value}%`, "Erfolgsquote (7 Tage)"]} />
-        <Line type="monotone" dataKey="rate" stroke="#22c55e" strokeWidth={2} dot={false} />
+        <XAxis dataKey="date" tick={false} stroke="var(--color-muted-foreground)" />
+        <YAxis
+          domain={[0, 100]}
+          unit="%"
+          width={40}
+          stroke="var(--color-muted-foreground)"
+          tick={{ fill: "var(--color-muted-foreground)" }}
+        />
+        <Tooltip
+          formatter={(value) => [`${value}%`, "Erfolgsquote (7 Tage)"]}
+          contentStyle={{
+            background: "var(--color-popover)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-md)",
+            color: "var(--color-popover-foreground)",
+          }}
+        />
+        <Line type="monotone" dataKey="rate" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );

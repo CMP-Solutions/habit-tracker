@@ -6,16 +6,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { GOAL_ICONS, type GoalIcon } from "@/lib/domain/goalIcons";
 
 interface Category {
   id: string;
   name: string;
 }
 
+function ToggleGroup<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="inline-flex rounded-lg border bg-muted/50 p-1">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+            value === opt.value
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function IconPicker({ value, onChange }: { value: GoalIcon | null; onChange: (icon: GoalIcon | null) => void }) {
+  return (
+    <div className="grid grid-cols-8 gap-1.5">
+      {GOAL_ICONS.map((icon) => (
+        <button
+          key={icon}
+          type="button"
+          onClick={() => onChange(value === icon ? null : icon)}
+          aria-pressed={value === icon}
+          className={`flex aspect-square items-center justify-center rounded-lg border text-lg transition-colors ${
+            value === icon ? "border-primary bg-primary/15" : "border-transparent bg-muted/50 hover:bg-muted"
+          }`}
+        >
+          {icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function GoalForm() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState<GoalIcon | null>(null);
   const [type, setType] = useState<"boolean" | "quantitative">("boolean");
   const [periodicity, setPeriodicity] = useState<"daily" | "weekly" | "count_per_period">("daily");
   const [periodUnit, setPeriodUnit] = useState<"week" | "month">("week");
@@ -44,6 +95,7 @@ export function GoalForm() {
       method: "POST",
       body: JSON.stringify({
         title,
+        icon,
         type,
         periodicity,
         unit: type === "quantitative" ? unit : undefined,
@@ -63,28 +115,40 @@ export function GoalForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border bg-card p-6 backdrop-blur-xl">
       <div className="space-y-2">
         <Label htmlFor="title">Titel</Label>
-        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <Input
+          id="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="z.B. 3 Liter Wasser trinken"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Icon (optional)</Label>
+        <IconPicker value={icon} onChange={setIcon} />
       </div>
 
       <div className="space-y-2">
         <Label>Typ</Label>
-        <Select value={type} onValueChange={(v) => handleTypeChange(v as "boolean" | "quantitative")}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="boolean">Erledigt / nicht erledigt</SelectItem>
-            <SelectItem value="quantitative">Messbare Menge</SelectItem>
-          </SelectContent>
-        </Select>
+        <ToggleGroup
+          value={type}
+          onChange={handleTypeChange}
+          options={[
+            { value: "boolean", label: "Abhaken (Ja/Nein)" },
+            { value: "quantitative", label: "Menge eintragen" },
+          ]}
+        />
       </div>
 
       {type === "quantitative" && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="targetValue">Zielwert</Label>
-            <Input id="targetValue" type="number" value={targetValue} onChange={(e) => setTargetValue(e.target.value)} required />
+            <Label htmlFor="targetValue">Zielmenge</Label>
+            <Input id="targetValue" type="number" className="font-mono" value={targetValue} onChange={(e) => setTargetValue(e.target.value)} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="unit">Einheit</Label>
@@ -94,21 +158,21 @@ export function GoalForm() {
       )}
 
       <div className="space-y-2">
-        <Label>Periodizität</Label>
+        <Label>Wie oft?</Label>
         <Select value={periodicity} onValueChange={(v) => setPeriodicity(v as "daily" | "weekly" | "count_per_period")}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="daily">Täglich</SelectItem>
             <SelectItem value="weekly">Wöchentlich</SelectItem>
-            {type === "boolean" && <SelectItem value="count_per_period">X-mal pro Zeitraum</SelectItem>}
+            {type === "boolean" && <SelectItem value="count_per_period">Mehrmals in einem Zeitraum</SelectItem>}
           </SelectContent>
         </Select>
       </div>
 
       {periodicity === "weekly" && (
         <div className="space-y-2">
-          <Label htmlFor="weeklyThreshold">An wie vielen von 7 Tagen mindestens?</Label>
-          <Input id="weeklyThreshold" type="number" min={1} max={7} value={weeklyThreshold} onChange={(e) => setWeeklyThreshold(e.target.value)} required />
+          <Label htmlFor="weeklyThreshold">Mindestens wie oft pro Woche?</Label>
+          <Input id="weeklyThreshold" type="number" className="font-mono" min={1} max={7} value={weeklyThreshold} onChange={(e) => setWeeklyThreshold(e.target.value)} required />
         </div>
       )}
 
@@ -126,7 +190,7 @@ export function GoalForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="periodTarget">Wie oft?</Label>
-            <Input id="periodTarget" type="number" min={1} value={periodTarget} onChange={(e) => setPeriodTarget(e.target.value)} required />
+            <Input id="periodTarget" type="number" className="font-mono" min={1} value={periodTarget} onChange={(e) => setPeriodTarget(e.target.value)} required />
           </div>
         </div>
       )}
@@ -143,8 +207,8 @@ export function GoalForm() {
         </Select>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <Button type="submit">Ziel anlegen</Button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" className="w-full">Ziel anlegen</Button>
     </form>
   );
 }

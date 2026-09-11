@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { Home, CalendarDays, BarChart3, Trophy, Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const LINKS = [
-  { href: "/", label: "Heute" },
-  { href: "/stats", label: "Auswertung" },
-  { href: "/milestones", label: "Meilensteine" },
-  { href: "/settings", label: "Einstellungen" },
+  { href: "/", label: "Heute", icon: Home },
+  { href: "/woche", label: "Woche", icon: CalendarDays },
+  { href: "/stats", label: "Auswertung", icon: BarChart3 },
+  { href: "/milestones", label: "Meilensteine", icon: Trophy },
+  { href: "/settings", label: "Einstellungen", icon: Settings },
 ];
 
 export function NavBar() {
@@ -17,21 +19,61 @@ export function NavBar() {
   if (pathname === "/login" || pathname === "/register") return null;
 
   return (
-    <nav className="flex items-center justify-between border-b px-6 py-3">
-      <div className="flex gap-4">
-        {LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={pathname === link.href ? "font-semibold" : "text-muted-foreground"}
-          >
-            {link.label}
-          </Link>
-        ))}
-      </div>
-      <Button variant="ghost" onClick={() => signOut({ callbackUrl: "/login" })}>
-        Abmelden
-      </Button>
-    </nav>
+    <>
+      {/* Desktop/tablet: full text nav. Hidden on phone widths, where five
+          labels plus logout never fit without truncating. */}
+      <nav className="sticky top-0 z-40 hidden items-center gap-2 border-b bg-card/60 px-6 backdrop-blur-xl sm:flex">
+        <span className="shrink-0 font-heading text-lg text-foreground">Ritual</span>
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          {LINKS.map((link) => {
+            const active = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative shrink-0 px-3 py-4 text-sm whitespace-nowrap transition-colors ${
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {link.label}
+                {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary" />}
+              </Link>
+            );
+          })}
+        </div>
+        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/login" })}>
+          Abmelden
+        </Button>
+      </nav>
+
+      {/* Phone: compact top bar (logo + logout)... */}
+      <nav className="sticky top-0 z-40 flex items-center justify-between border-b bg-card/60 px-4 py-3 backdrop-blur-xl sm:hidden">
+        <span className="font-heading text-lg text-foreground">Ritual</span>
+        <Button variant="ghost" size="icon-sm" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Abmelden">
+          <LogOut />
+        </Button>
+      </nav>
+
+      {/* ...plus a fixed icon tab bar for navigation, the standard mobile
+          pattern for a small fixed set of top-level destinations. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-card/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
+        {LINKS.map((link) => {
+          const active = pathname === link.href;
+          const Icon = link.icon;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+                active ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <Icon className="size-5" />
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

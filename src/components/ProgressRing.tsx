@@ -1,3 +1,5 @@
+import { NumberTicker } from "@/components/magicui/number-ticker";
+
 interface ProgressRingProps {
   value: number;
   target: number;
@@ -20,6 +22,7 @@ export function ProgressRing({ value, target, unit }: ProgressRingProps) {
   const complete = ratio >= 1;
   const remaining = Math.max(target - value, 0);
   const offset = CIRCUMFERENCE * (1 - clamped);
+  const percent = Math.round(clamped * 100);
 
   return (
     <div
@@ -45,11 +48,15 @@ export function ProgressRing({ value, target, unit }: ProgressRingProps) {
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={offset}
-          className={complete ? "stroke-accent" : "stroke-primary"}
+          className={
+            complete
+              ? "stroke-celebrate transition-[stroke-dashoffset] duration-500 ease-out [filter:drop-shadow(0_0_4px_var(--color-celebrate))]"
+              : "stroke-primary transition-[stroke-dashoffset] duration-500 ease-out"
+          }
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium tabular-nums">
-        {Math.round(clamped * 100)}%
+      <span className="absolute inset-0 flex items-center justify-center font-mono text-[10px] tabular-nums text-foreground">
+        <NumberTicker value={percent} className="font-mono text-[10px] text-current" />%
       </span>
     </div>
   );

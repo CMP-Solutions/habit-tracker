@@ -24,15 +24,21 @@ export function Heatmap({ results }: { results: DayResult[] }) {
   const weeks: (typeof days)[] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
+  // Uses the app's own accent hue rather than a traffic-light red/green: a
+  // day is either on-brand (done) or a quiet gap (missed), not an alarm.
   const colorFor = (success: boolean | null) =>
-    success === null ? "bg-muted" : success ? "bg-emerald-500" : "bg-red-200";
+    success === null ? "bg-muted" : success ? "bg-primary" : "bg-destructive/20";
 
   return (
     <div className="flex gap-1 overflow-x-auto pb-2">
       {weeks.map((week, i) => (
         <div key={i} className="flex flex-col gap-1">
           {week.map((day) => (
-            <div key={day.date} title={day.date} className={`h-3 w-3 rounded-sm ${colorFor(day.success)}`} />
+            <div
+              key={day.date}
+              title={day.date}
+              className={`h-3 w-3 rounded-[3px] transition-colors ${colorFor(day.success)}`}
+            />
           ))}
         </div>
       ))}
