@@ -184,6 +184,11 @@
   z-index: -1;
   overflow: hidden;
   background: oklch(0.16 0.02 250);
+  /* Own compositor layer: without this, every animated blob frame can get
+     entangled with the backdrop-blur glass cards painted on top of it,
+     which is expensive enough on some GPUs to make page scroll feel
+     unresponsive even though nothing is actually blocking it. */
+  transform: translateZ(0);
 }
 
 .aurora-blob {
@@ -191,7 +196,9 @@
   width: 60vmax;
   height: 60vmax;
   border-radius: 9999px;
-  filter: blur(110px);
+  /* 110px cost noticeably more to composite than 90px against negligible
+     visual difference at this element size; see .aurora-bg comment. */
+  filter: blur(90px);
   mix-blend-mode: screen;
   will-change: transform;
 }

@@ -82,7 +82,14 @@ export default function WeekPage() {
           <table className="w-full min-w-[640px] border-separate border-spacing-0">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 bg-card px-2 pb-3 backdrop-blur-xl text-left text-sm font-medium text-muted-foreground">Ziel</th>
+                {/* Sticky+opaque only below md: the table's 640px min-width
+                    never needs horizontal scroll at md and up inside this
+                    max-w-4xl page, so keeping it sticky there just paints an
+                    opaque block over the glass card for no functional reason.
+                    bg-popover (not bg-card+blur) is the system's opaque-
+                    surface token — stacking another blur on the already-
+                    blurred card compounds into a visibly flat dark patch. */}
+                <th className="sticky left-0 z-10 bg-popover px-2 pb-3 text-left text-sm font-medium text-muted-foreground md:static md:bg-transparent">Ziel</th>
                 {data.days.map((day) => (
                   <th
                     key={day}
@@ -100,7 +107,7 @@ export default function WeekPage() {
             <tbody>
               {data.goals.map((goal) => (
                 <tr key={goal.id} className="border-t border-border/60">
-                  <td className="sticky left-0 z-10 bg-card py-2 pr-3 backdrop-blur-xl">
+                  <td className="sticky left-0 z-10 bg-popover py-2 pr-3 md:static md:bg-transparent">
                     <span className="flex items-center gap-2 text-sm font-medium">
                       {goal.icon && <span className="text-base leading-none">{goal.icon}</span>}
                       {goal.title}
