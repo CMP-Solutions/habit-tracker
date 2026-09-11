@@ -8,19 +8,20 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime   @default(now())
-  categories   Category[]
-  goals        Goal[]
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String
+  name              String?
+  createdAt         DateTime           @default(now())
+  categories        Category[]
+  goals             Goal[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Category {
-  id     String  @id @default(cuid())
+  id     String @id @default(cuid())
   userId String
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   name   String
   color  String
   icon   String
@@ -30,22 +31,23 @@ model Category {
 }
 
 model Goal {
-  id              String     @id @default(cuid())
+  id              String      @id @default(cuid())
   userId          String
-  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryId      String?
-  category        Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category        Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   title           String
   description     String?
-  type            String     // "boolean" | "quantitative"
+  icon            String? // emoji from the curated set in src/lib/domain/goalIcons.ts
+  type            String // "boolean" | "quantitative"
   unit            String?
   targetValue     Float?
-  periodicity     String     // "daily" | "weekly" | "count_per_period"
+  periodicity     String // "daily" | "weekly" | "count_per_period"
   weeklyThreshold Int?
-  periodUnit      String?    // "week" | "month" — only set when periodicity = "count_per_period"
-  periodTarget    Int?       // only set when periodicity = "count_per_period"
-  archived        Boolean    @default(false)
-  createdAt       DateTime   @default(now())
+  periodUnit      String? // "week" | "month" — only set when periodicity = "count_per_period"
+  periodTarget    Int? // only set when periodicity = "count_per_period"
+  archived        Boolean     @default(false)
+  createdAt       DateTime    @default(now())
   entries         Entry[]
   milestones      Milestone[]
 }
@@ -61,11 +63,21 @@ model Entry {
   @@unique([goalId, date])
 }
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
 model Milestone {
   id         String   @id @default(cuid())
   goalId     String
   goal       Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  type       String   // "streak" | "total_count"
+  type       String // "streak" | "total_count"
   threshold  Int
   achievedAt DateTime @default(now())
 
