@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { formatLocalDate } from "@/lib/date";
 import { HISTORY_WINDOW_DAYS } from "@/lib/domain/window";
 
@@ -7,6 +8,16 @@ interface DayResult {
 }
 
 export function Heatmap({ results }: { results: DayResult[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Chronological order runs left (oldest) to right (today), but the
+  // container defaults to scrollLeft 0 — showing a mostly-empty past instead
+  // of today. Jump straight to the current end on mount.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [results]);
+
   const byDate = new Map(results.map((r) => [r.date, r.success]));
   const days: { date: string; success: boolean | null }[] = [];
   const cursor = new Date();
@@ -30,7 +41,7 @@ export function Heatmap({ results }: { results: DayResult[] }) {
     success === null ? "bg-muted" : success ? "bg-primary" : "bg-destructive/20";
 
   return (
-    <div className="flex gap-1 overflow-x-auto pb-2">
+    <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-2">
       {weeks.map((week, i) => (
         <div key={i} className="flex flex-col gap-1">
           {week.map((day) => (
