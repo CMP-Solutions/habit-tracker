@@ -27,7 +27,7 @@ export async function GET() {
   }
 
   const goals = await db.goal.findMany({
-    where: { userId, archived: false },
+    where: { userId, archived: false, OR: [{ endDate: null }, { endDate: { gte: today } }] },
     include: { category: true },
     orderBy: { createdAt: "asc" },
   });

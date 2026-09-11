@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { utcToday } from "@/lib/domain/window";
+import { utcToday, parseUtcDateString } from "@/lib/domain/window";
 import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
 import { isGoalIcon } from "@/lib/domain/goalIcons";
 
@@ -10,16 +10,23 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const goals = await db.goal.findMany({
-    where: { userId: (session.user as { id: string }).id, archived: false },
-    include: { category: true },
-    orderBy: { createdAt: "asc" },
-  });
-
   // Today's entry per goal, so the dashboard can seed an already-checked-in
   // state. Entries are stored at UTC midnight, so "today" is the server's UTC
   // date — consistent with how entries are written (known timezone limitation).
   const today = utcToday();
+
+  const goals = await db.goal.findMany({
+    // A goal past its end date has naturally run its course: it drops off
+    // "Heute"/"Woche" but stays in history (Auswertung/Meilensteine still
+    // query goals directly, unaffected by this filter).
+    where: {
+      userId: (session.user as { id: string }).id,
+      archived: false,
+      OR: [{ endDate: null }, { endDate: { gte: today } }],
+    },
+    include: { category: true },
+    orderBy: { createdAt: "asc" },
+  });
   const todaysEntries = await db.entry.findMany({
     where: { goalId: { in: goals.map((g) => g.id) }, date: today },
   });
@@ -68,7 +75,13 @@ export async function POST(req: Request) {
     periodTarget,
     categoryId,
     icon,
+    endDate,
   } = body;
+
+  const normalizedEndDate = endDate ? parseUtcDateString(endDate) : null;
+  if (endDate && !normalizedEndDate) {
+    return NextResponse.json({ error: "endDate must be a calendar date in YYYY-MM-DD format." }, { status: 400 });
+  }
 
   if (
     !title ||
@@ -121,6 +134,7 @@ export async function POST(req: Request) {
       periodTarget: periodicity === "count_per_period" ? periodTarget : undefined,
       categoryId: normalizedCategoryId,
       icon: icon ?? undefined,
+      endDate: normalizedEndDate,
     },
   });
   return NextResponse.json(goal, { status: 201 });

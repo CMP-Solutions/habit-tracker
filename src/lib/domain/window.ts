@@ -17,3 +17,12 @@ export function utcMidnightDaysAgo(days: number, now: Date = new Date()): Date {
   d.setUTCDate(d.getUTCDate() - days);
   return d;
 }
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Parses a "YYYY-MM-DD" string into UTC midnight, or null if invalid/absent. */
+export function parseUtcDateString(value: unknown): Date | null {
+  if (typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) return null;
+  const date = new Date(value + "T00:00:00Z");
+  return Number.isNaN(date.getTime()) ? null : date;
+}

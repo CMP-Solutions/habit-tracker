@@ -39,6 +39,7 @@ model Goal {
   title           String
   description     String?
   icon            String? // emoji from the curated set in src/lib/domain/goalIcons.ts
+  endDate         DateTime? // null = ongoing; otherwise the last active day (UTC midnight)
   type            String // "boolean" | "quantitative"
   unit            String?
   targetValue     Float?

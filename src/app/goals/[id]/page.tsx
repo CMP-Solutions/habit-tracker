@@ -9,7 +9,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { buttonVariants } from "@/components/ui/button";
 
 interface HistoryResponse {
-  goal: { title: string; icon: string | null };
+  goal: { title: string; icon: string | null; endDate: string | null };
   results: { date: string; success: boolean }[];
   milestones: { type: string; threshold: number; achievedAt: string }[];
 }
@@ -37,10 +37,17 @@ export default function GoalDetailPage() {
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="flex items-center gap-3 font-heading text-3xl">
-          {data.goal.icon && <span className="text-2xl leading-none">{data.goal.icon}</span>}
-          {data.goal.title}
-        </h1>
+        <div>
+          <h1 className="flex items-center gap-3 font-heading text-3xl">
+            {data.goal.icon && <span className="text-2xl leading-none">{data.goal.icon}</span>}
+            {data.goal.title}
+          </h1>
+          {data.goal.endDate && (
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              Endet am {new Date(data.goal.endDate).toLocaleDateString("de-DE", { timeZone: "UTC" })}
+            </p>
+          )}
+        </div>
         <Link href={`/goals/${params.id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>
           <Pencil /> Bearbeiten
         </Link>

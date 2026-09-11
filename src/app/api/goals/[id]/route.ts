@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isGoalIcon } from "@/lib/domain/goalIcons";
+import { parseUtcDateString } from "@/lib/domain/window";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -29,10 +30,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     periodTarget,
     categoryId,
     archived,
+    endDate,
   } = body;
 
   if (icon !== undefined && icon !== null && !isGoalIcon(icon)) {
     return NextResponse.json({ error: "icon must be one of the supported goal icons." }, { status: 400 });
+  }
+
+  // `undefined` leaves the end date unchanged; `null`/"" clears it (ongoing again).
+  const normalizedEndDate = endDate === undefined ? undefined : endDate ? parseUtcDateString(endDate) : null;
+  if (endDate && !normalizedEndDate) {
+    return NextResponse.json({ error: "endDate must be a calendar date in YYYY-MM-DD format." }, { status: 400 });
   }
 
   if (periodicity === "count_per_period") {
@@ -74,6 +82,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       periodTarget,
       categoryId: normalizedCategoryId,
       archived,
+      endDate: normalizedEndDate,
     },
   });
   return NextResponse.json(goal);

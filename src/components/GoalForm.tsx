@@ -25,6 +25,7 @@ export interface ExistingGoal {
   periodUnit: "week" | "month" | null;
   periodTarget: number | null;
   categoryId: string | null;
+  endDate: string | null;
 }
 
 function ToggleGroup<T extends string>({
@@ -91,6 +92,8 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
   const [targetValue, setTargetValue] = useState(existingGoal?.targetValue?.toString() ?? "");
   const [weeklyThreshold, setWeeklyThreshold] = useState(existingGoal?.weeklyThreshold?.toString() ?? "");
   const [categoryId, setCategoryId] = useState<string | undefined>(existingGoal?.categoryId ?? undefined);
+  const [duration, setDuration] = useState<"ongoing" | "ends">(existingGoal?.endDate ? "ends" : "ongoing");
+  const [endDate, setEndDate] = useState(existingGoal?.endDate?.slice(0, 10) ?? "");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -120,6 +123,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
         periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
         periodTarget: periodicity === "count_per_period" ? Number(periodTarget) : undefined,
         categoryId,
+        endDate: duration === "ends" ? endDate : null,
       }),
     });
     if (!res.ok) {
@@ -210,6 +214,27 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
           </div>
         </div>
       )}
+
+      <div className="space-y-2">
+        <Label>Dauer</Label>
+        <ToggleGroup
+          value={duration}
+          onChange={setDuration}
+          options={[
+            { value: "ongoing", label: "Fortlaufend" },
+            { value: "ends", label: "Mit Enddatum" },
+          ]}
+        />
+        {duration === "ends" && (
+          <Input
+            type="date"
+            className="font-mono"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            required
+          />
+        )}
+      </div>
 
       <div className="space-y-2">
         <Label>Kategorie</Label>
