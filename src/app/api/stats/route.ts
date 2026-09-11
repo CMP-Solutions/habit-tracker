@@ -38,15 +38,17 @@ export async function GET(req: Request) {
 
   function countsForDay(day: Date) {
     const dayTime = day.getTime();
-    const active = goals.filter((g) => {
-      const createdDay = utcToday(g.createdAt).getTime();
-      if (createdDay > dayTime) return false;
-      if (g.endDate && utcToday(g.endDate).getTime() < dayTime) return false;
-      return true;
-    });
     let successCount = 0;
-    for (const goal of active) {
+    let totalCount = 0;
+    for (const goal of goals) {
+      if (goal.endDate && utcToday(goal.endDate).getTime() < dayTime) continue;
       const entry = entryByGoalAndDay.get(`${goal.id}_${utcDayKey(day)}`);
+      const createdDay = utcToday(goal.createdAt).getTime();
+      // A goal normally doesn't count toward a day before it existed — but a
+      // backfilled entry for that day (e.g. logged via the Woche grid) proves
+      // it should, since backfilled history is never rejected.
+      if (createdDay > dayTime && !entry) continue;
+      totalCount++;
       const success = entry
         ? goal.type === "boolean"
           ? entry.done
@@ -54,7 +56,7 @@ export async function GET(req: Request) {
         : false;
       if (success) successCount++;
     }
-    return { successCount, totalCount: active.length };
+    return { successCount, totalCount };
   }
 
   const daily: { date: string; successCount: number; totalCount: number }[] = [];

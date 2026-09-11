@@ -215,4 +215,23 @@ describe("/api/goals", () => {
     const daily = goals.find((g: { title: string }) => g.title === "Daily thing");
     expect(daily.periodProgress).toBeNull();
   });
+
+  it("counts a backfilled entry dated before the goal's own createdAt toward the streak", async () => {
+    // Regression: a goal created "today" but backfilled via the Woche grid
+    // for yesterday must still extend the streak — backfilled history is
+    // never rejected (PRODUCT.md), so createdAt can't gate the streak window.
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+    const goal = await db.goal.create({
+      data: { userId, title: "Wasser trinken", type: "boolean", periodicity: "daily", createdAt: today },
+    });
+    await db.entry.create({ data: { goalId: goal.id, date: yesterday, done: true } });
+    await db.entry.create({ data: { goalId: goal.id, date: today, done: true } });
+
+    const goals = await (await GET()).json();
+    expect(goals.find((g: { id: string }) => g.id === goal.id).currentStreak).toBe(2);
+  });
 });

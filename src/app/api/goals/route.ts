@@ -56,9 +56,17 @@ export async function GET() {
   const yesterday = utcMidnightDaysAgo(1);
   const streakByGoal = new Map<string, number>();
   for (const goal of goals) {
-    const entries = await db.entry.findMany({ where: { goalId: goal.id, date: { gte: since, lt: today } } });
+    const entries = await db.entry.findMany({
+      where: { goalId: goal.id, date: { gte: since, lt: today } },
+      orderBy: { date: "asc" },
+    });
     const createdDay = utcToday(goal.createdAt);
-    const from = createdDay > since ? createdDay : since;
+    let from = createdDay > since ? createdDay : since;
+    // A backfilled entry dated before the goal's own createdAt (e.g. logged
+    // via the Woche grid for an earlier day in the week) must still count
+    // toward the streak — goals never reject backfilled history.
+    const earliestEntryDate = entries[0]?.date;
+    if (earliestEntryDate && earliestEntryDate < from) from = earliestEntryDate;
     const results = from > yesterday
       ? []
       : densifyDailyResults(

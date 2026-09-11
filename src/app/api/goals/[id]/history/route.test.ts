@@ -64,6 +64,20 @@ describe("GET /api/goals/[id]/history", () => {
     expect(results[0].date).toBe(key(utcToday()));
   });
 
+  it("counts a backfilled entry dated before the goal's own createdAt", async () => {
+    // Regression: a goal created "today" but backfilled via the Woche grid
+    // for yesterday must still show that day and extend the streak —
+    // backfilled history is never rejected (PRODUCT.md), so createdAt can't
+    // gate the results/streak window past an entry that actually exists.
+    await db.goal.update({ where: { id: goalId }, data: { createdAt: utcToday() } });
+    await db.entry.create({ data: { goalId, date: daysAgo(1), done: true } });
+    await db.entry.create({ data: { goalId, date: daysAgo(0), done: true } });
+
+    const { results, currentStreak } = await load();
+    expect(results.map((r: { date: string }) => r.date)).toEqual([1, 0].map((n) => key(daysAgo(n))));
+    expect(currentStreak).toBe(2);
+  });
+
   it("rejects a goal owned by another user with 404", async () => {
     const other = await db.user.create({ data: { email: "history-other@example.com", passwordHash: "x" } });
     (getServerSession as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue({

@@ -33,7 +33,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // Truncate createdAt to its UTC day first: a goal created today at 10:00
   // would otherwise compare as later than today's midnight and yield no days.
   const createdDay = utcToday(goal.createdAt);
-  const from = createdDay > since ? createdDay : since;
+  let from = createdDay > since ? createdDay : since;
+  // A backfilled entry dated before the goal's own createdAt (e.g. logged via
+  // the Woche grid for an earlier day in the week) must still count — goals
+  // never reject backfilled history, so the window can't start later than the
+  // earliest entry actually on record.
+  const earliestEntryDate = entries[0]?.date;
+  if (earliestEntryDate && earliestEntryDate < from) from = earliestEntryDate;
   const results = from > today
     ? []
     : densifyDailyResults(
