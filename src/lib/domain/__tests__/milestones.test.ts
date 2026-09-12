@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { determineNewMilestones } from "../milestones";
+import { determineNewMilestones, determineUpcomingProgress } from "../milestones";
 
 const day = (date: string, success: boolean) => ({ date, success });
 
@@ -36,5 +36,29 @@ describe("determineNewMilestones", () => {
     ];
     const awards = determineNewMilestones(results, []);
     expect(awards).toContainEqual({ type: "total_count", threshold: 100 });
+  });
+});
+
+describe("determineUpcomingProgress", () => {
+  it("reports progress toward the first unearned threshold of each type", () => {
+    expect(determineUpcomingProgress(3, 12, [])).toEqual([
+      { type: "streak", threshold: 7, current: 3 },
+      { type: "total_count", threshold: 100, current: 12 },
+    ]);
+  });
+
+  it("skips to the next threshold once the first is already awarded", () => {
+    const progress = determineUpcomingProgress(10, 0, [{ type: "streak", threshold: 7 }]);
+    expect(progress).toContainEqual({ type: "streak", threshold: 30, current: 10 });
+  });
+
+  it("caps current at the threshold so progress never exceeds 100%", () => {
+    const progress = determineUpcomingProgress(50, 0, []);
+    expect(progress).toContainEqual({ type: "streak", threshold: 7, current: 7 });
+  });
+
+  it("omits a type once every threshold has been awarded", () => {
+    const progress = determineUpcomingProgress(5, 150, [{ type: "total_count", threshold: 100 }]);
+    expect(progress.some((p) => p.type === "total_count")).toBe(false);
   });
 });
