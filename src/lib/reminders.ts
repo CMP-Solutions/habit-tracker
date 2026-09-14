@@ -39,3 +39,52 @@ export function shouldNotify(params: {
   if (params.lastNotifiedKey === params.todayKey) return false;
   return true;
 }
+
+const ENABLED_KEY = "ritual:reminders-enabled";
+const LAST_NOTIFIED_KEY = "ritual:reminders-last-notified";
+
+function todayKey(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+export function isRemindersEnabled(): boolean {
+  return typeof window !== "undefined" && localStorage.getItem(ENABLED_KEY) === "true";
+}
+
+export async function enableReminders(): Promise<void> {
+  if (typeof Notification === "undefined") {
+    throw new Error("Benachrichtigungen werden von diesem Browser nicht unterstützt.");
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    throw new Error("Berechtigung für Benachrichtigungen wurde nicht erteilt.");
+  }
+  localStorage.setItem(ENABLED_KEY, "true");
+}
+
+export function disableReminders(): void {
+  localStorage.removeItem(ENABLED_KEY);
+}
+
+/**
+ * Called on app load/focus with the current open-goal count; shows a plain
+ * browser Notification at most once per day, only in the evening, only if
+ * enabled and permitted. No service worker or push subscription — this can
+ * only fire while the tab is open, per the local-only reminders decision
+ * (spec §2). Untested by design — see this plan's architecture note.
+ */
+export function maybeShowReminder(openCount: number): void {
+  const now = new Date();
+  const fire = shouldNotify({
+    openCount,
+    enabled: isRemindersEnabled(),
+    permissionGranted: typeof Notification !== "undefined" && Notification.permission === "granted",
+    hour: now.getHours(),
+    todayKey: todayKey(now),
+    lastNotifiedKey: localStorage.getItem(LAST_NOTIFIED_KEY),
+  });
+  if (!fire) return;
+
+  new Notification("Ritual", { body: reminderMessage(openCount) });
+  localStorage.setItem(LAST_NOTIFIED_KEY, todayKey(now));
+}
