@@ -76,3 +76,42 @@ export async function listGoals(options?: { includeArchived?: boolean }): Promis
   const all = await db.goals.orderBy("createdAt").toArray();
   return options?.includeArchived ? all : all.filter((g) => !g.archived);
 }
+
+export async function updateGoal(
+  id: string,
+  patch: Partial<CreateGoalInput> & { archived?: boolean }
+): Promise<GoalRecord> {
+  const existing = await db.goals.get(id);
+  if (!existing) throw new Error("Not found");
+
+  if (patch.step !== undefined && !(patch.step > 0)) {
+    throw new Error("step must be a positive number.");
+  }
+  const effectivePeriodicity = patch.periodicity ?? existing.periodicity;
+  if (effectivePeriodicity === "count_per_period") {
+    const periodUnit = patch.periodUnit ?? existing.periodUnit;
+    const periodTarget = patch.periodTarget ?? existing.periodTarget;
+    if (!["week", "month"].includes(periodUnit ?? "")) {
+      throw new Error("periodUnit must be 'week' or 'month'.");
+    }
+    if (!Number.isInteger(periodTarget) || (periodTarget as number) < 1) {
+      throw new Error("periodTarget must be a positive integer.");
+    }
+  }
+  if (patch.categoryId) {
+    const category = await db.categories.get(patch.categoryId);
+    if (!category) throw new Error("Invalid category.");
+  }
+
+  const changes: Partial<GoalRecord> = { ...patch } as Partial<GoalRecord>;
+  await db.goals.update(id, changes);
+  return (await db.goals.get(id)) as GoalRecord;
+}
+
+export async function deleteGoal(id: string): Promise<void> {
+  const entryCount = await db.entries.where("goalId").equals(id).count();
+  if (entryCount > 0) {
+    throw new Error("Goal has entries; archive it instead of deleting.");
+  }
+  await db.goals.delete(id);
+}
