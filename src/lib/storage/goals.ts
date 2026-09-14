@@ -1,5 +1,9 @@
 import { db, type GoalRecord } from "./db";
 import { generateId } from "./id";
+import { parseUtcDateString, utcToday, utcMidnightDaysAgo } from "@/lib/domain/window";
+import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
+import { densifyDailyResults } from "@/lib/domain/densify";
+import { calculateCurrentStreak } from "@/lib/domain/streak";
 
 function utcTodayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -114,4 +118,97 @@ export async function deleteGoal(id: string): Promise<void> {
     throw new Error("Goal has entries; archive it instead of deleting.");
   }
   await db.goals.delete(id);
+}
+
+export interface GoalWithProgress extends GoalRecord {
+  todayEntry: { done: boolean; value: number | null } | null;
+  periodProgress: { current: number; target: number } | null;
+  currentStreak: number;
+}
+
+export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
+  const today = utcToday();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  // A goal past its end date drops off "Heute"/"Woche" but stays visible in
+  // stats/milestones elsewhere — filtered here, not by mutating state.
+  const allGoals = await db.goals.orderBy("createdAt").toArray();
+  const goals = allGoals.filter((g) => {
+    if (g.archived) return false;
+    if (g.endDate && g.endDate < todayStr) return false;
+    return true;
+  });
+
+  const goalIds = goals.map((g) => g.id);
+  const todaysEntries = await db.entries.where("goalId").anyOf(goalIds).and((e) => e.date === todayStr).toArray();
+  const entryByGoal = new Map(todaysEntries.map((e) => [e.goalId, e]));
+
+  const periodProgressByGoal = new Map<string, { current: number; target: number }>();
+  for (const goal of goals) {
+    if (goal.periodicity !== "count_per_period" || !goal.periodUnit || goal.periodTarget == null) continue;
+    const { start, end } = periodBounds(today, goal.periodUnit as PeriodUnit);
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+    const entries = await db.entries
+      .where("goalId")
+      .equals(goal.id)
+      .and((e) => e.date >= startStr && e.date <= endStr)
+      .toArray();
+    const current = entries.filter((e) =>
+      goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity)
+    ).length;
+    periodProgressByGoal.set(goal.id, { current, target: goal.periodTarget });
+  }
+
+  // Current streak per goal, computed through yesterday then extended with
+  // today's already-fetched entry — an unchecked "today" must not zero out a
+  // real streak before the user has had a chance to check in.
+  const since = utcMidnightDaysAgo(60);
+  const yesterday = utcMidnightDaysAgo(1);
+  const sinceStr = since.toISOString().slice(0, 10);
+  const streakByGoal = new Map<string, number>();
+
+  for (const goal of goals) {
+    const entries = await db.entries
+      .where("goalId")
+      .equals(goal.id)
+      .and((e) => e.date >= sinceStr && e.date < todayStr)
+      .sortBy("date");
+    const createdDay = parseUtcDateString(goal.createdAt) as Date;
+    let from = createdDay > since ? createdDay : since;
+    // A backfilled entry dated before the goal's own createdAt must still
+    // count toward the streak — goals never reject backfilled history.
+    const earliestEntryDate = entries[0] ? (parseUtcDateString(entries[0].date) as Date) : undefined;
+    if (earliestEntryDate && earliestEntryDate < from) from = earliestEntryDate;
+
+    const results = from > yesterday
+      ? []
+      : densifyDailyResults(
+          entries.map((e) => ({
+            date: parseUtcDateString(e.date) as Date,
+            success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+          })),
+          from,
+          yesterday
+        );
+    let streak = calculateCurrentStreak(results);
+    const todayEntry = entryByGoal.get(goal.id);
+    const todaySuccess = todayEntry
+      ? goal.type === "boolean"
+        ? todayEntry.done
+        : (todayEntry.value ?? 0) >= (goal.targetValue ?? Infinity)
+      : false;
+    if (todaySuccess) streak++;
+    streakByGoal.set(goal.id, streak);
+  }
+
+  return goals.map((goal) => {
+    const entry = entryByGoal.get(goal.id);
+    return {
+      ...goal,
+      todayEntry: entry ? { done: entry.done, value: entry.value } : null,
+      periodProgress: periodProgressByGoal.get(goal.id) ?? null,
+      currentStreak: streakByGoal.get(goal.id) ?? 0,
+    };
+  });
 }

@@ -2,7 +2,8 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createCategory } from "../categories";
-import { createGoal, listGoals, updateGoal, deleteGoal } from "../goals";
+import { createGoal, listGoals, updateGoal, deleteGoal, listGoalsWithProgress } from "../goals";
+import { recordEntry } from "../entries";
 
 describe("goals storage", () => {
   beforeEach(async () => {
@@ -132,5 +133,60 @@ describe("goals storage", () => {
     await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null });
     await expect(deleteGoal(goal.id)).rejects.toThrow("Goal has entries; archive it instead of deleting.");
     expect(await db.goals.get(goal.id)).toBeDefined();
+  });
+
+  it("includes today's entry so the dashboard can seed its checked state", async () => {
+    const goal = await createGoal({ title: "Lesen", type: "boolean", periodicity: "daily" });
+    const today = new Date().toISOString().slice(0, 10);
+    await recordEntry({ goalId: goal.id, date: today, done: true });
+
+    const goals = await listGoalsWithProgress();
+    const found = goals.find((g) => g.id === goal.id);
+    expect(found?.todayEntry).toEqual({ done: true, value: null });
+  });
+
+  it("reports a null todayEntry when there is no check-in today", async () => {
+    await createGoal({ title: "Laufen", type: "boolean", periodicity: "daily" });
+    const goals = await listGoalsWithProgress();
+    expect(goals[0].todayEntry).toBeNull();
+  });
+
+  it("includes periodProgress for a count_per_period goal", async () => {
+    const goal = await createGoal({
+      title: "Fitness",
+      type: "boolean",
+      periodicity: "count_per_period",
+      periodUnit: "week",
+      periodTarget: 3,
+    });
+    const today = new Date();
+    const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    await recordEntry({ goalId: goal.id, date: monday.toISOString().slice(0, 10), done: true });
+
+    const goals = await listGoalsWithProgress();
+    const found = goals.find((g) => g.id === goal.id);
+    expect(found?.periodProgress).toEqual({ current: 1, target: 3 });
+  });
+
+  it("returns periodProgress null for a non-count_per_period goal", async () => {
+    await createGoal({ title: "Daily thing", type: "boolean", periodicity: "daily" });
+    const goals = await listGoalsWithProgress();
+    const daily = goals.find((g) => g.title === "Daily thing");
+    expect(daily?.periodProgress).toBeNull();
+  });
+
+  it("counts a backfilled entry dated before the goal's own createdAt toward the streak", async () => {
+    // Regression guard, ported from the Prisma-era fix: a goal created
+    // "today" but backfilled for yesterday must still extend the streak.
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily" });
+    await recordEntry({ goalId: goal.id, date: yesterday, done: true });
+    await recordEntry({ goalId: goal.id, date: today, done: true });
+
+    const goals = await listGoalsWithProgress();
+    expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(2);
   });
 });
