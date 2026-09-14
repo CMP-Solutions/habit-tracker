@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createCategory } from "../categories";
-import { createGoal, listGoals, updateGoal, deleteGoal, listGoalsWithProgress } from "../goals";
+import { createGoal, listGoals, updateGoal, deleteGoal, listGoalsWithProgress, getGoalHistory } from "../goals";
 import { recordEntry } from "../entries";
 
 describe("goals storage", () => {
@@ -188,5 +188,36 @@ describe("goals storage", () => {
 
     const goals = await listGoalsWithProgress();
     expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(2);
+  });
+
+  it("returns a gapless day series from goal creation through today, and rejects an unknown id", async () => {
+    const goal = await createGoal({ title: "Sport", type: "boolean", periodicity: "daily" });
+    const day4Ago = new Date(Date.now() - 4 * 86400000).toISOString().slice(0, 10);
+    const day1Ago = new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10);
+    await db.goals.update(goal.id, { createdAt: day4Ago });
+    await recordEntry({ goalId: goal.id, date: day4Ago, done: true });
+    await recordEntry({ goalId: goal.id, date: day1Ago, done: true });
+
+    const history = await getGoalHistory(goal.id);
+    expect(history.results).toHaveLength(5); // day4Ago..today inclusive
+    expect(history.results[0].success).toBe(true);
+    expect(history.results[4].success).toBe(false); // today, unchecked
+
+    await expect(getGoalHistory("nonexistent")).rejects.toThrow("Not found");
+  });
+
+  it("counts a backfilled entry dated before the goal's own createdAt in history and streak", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily" });
+    await recordEntry({ goalId: goal.id, date: yesterday, done: true });
+    await recordEntry({ goalId: goal.id, date: today, done: true });
+
+    const history = await getGoalHistory(goal.id);
+    expect(history.results.map((r) => r.date)).toEqual([yesterday, today]);
+    expect(history.currentStreak).toBe(2);
+    expect(history.totalSuccessCount).toBe(2);
+    expect(history.entryCount).toBe(2);
   });
 });

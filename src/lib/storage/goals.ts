@@ -1,9 +1,9 @@
 import { db, type GoalRecord } from "./db";
 import { generateId } from "./id";
-import { parseUtcDateString, utcToday, utcMidnightDaysAgo } from "@/lib/domain/window";
+import { parseUtcDateString, utcToday, utcMidnightDaysAgo, HISTORY_WINDOW_DAYS } from "@/lib/domain/window";
 import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
 import { densifyDailyResults } from "@/lib/domain/densify";
-import { calculateCurrentStreak } from "@/lib/domain/streak";
+import { calculateCurrentStreak, calculateLongestStreak, calculateTotalSuccessCount } from "@/lib/domain/streak";
 
 function utcTodayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -211,4 +211,66 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
       currentStreak: streakByGoal.get(goal.id) ?? 0,
     };
   });
+}
+
+export interface GoalHistory {
+  goal: GoalRecord;
+  results: { date: string; success: boolean }[];
+  milestones: { id: string; type: "streak" | "total_count"; threshold: number; achievedAt: string }[];
+  entryCount: number;
+  currentStreak: number;
+  longestStreak: number;
+  totalSuccessCount: number;
+}
+
+export async function getGoalHistory(id: string): Promise<GoalHistory> {
+  const goal = await db.goals.get(id);
+  if (!goal) throw new Error("Not found");
+
+  // The window matches the Heatmap grid exactly (HISTORY_WINDOW_DAYS days
+  // back through today, inclusive), so no fetched entry is dropped and no
+  // cell is rendered for a day that was never fetched.
+  const since = utcMidnightDaysAgo(HISTORY_WINDOW_DAYS);
+  const today = utcToday();
+  const sinceStr = since.toISOString().slice(0, 10);
+
+  const entries = await db.entries.where("goalId").equals(id).and((e) => e.date >= sinceStr).sortBy("date");
+
+  const createdDay = parseUtcDateString(goal.createdAt) as Date;
+  let from = createdDay > since ? createdDay : since;
+  // A backfilled entry dated before the goal's own createdAt must still
+  // count — goals never reject backfilled history.
+  const earliestEntryDate = entries[0] ? (parseUtcDateString(entries[0].date) as Date) : undefined;
+  if (earliestEntryDate && earliestEntryDate < from) from = earliestEntryDate;
+
+  const results = from > today
+    ? []
+    : densifyDailyResults(
+        entries.map((e) => ({
+          date: parseUtcDateString(e.date) as Date,
+          success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+        })),
+        from,
+        today
+      );
+
+  const milestones = await db.milestones.where("goalId").equals(id).sortBy("achievedAt");
+
+  // `results` truthfully shows an unchecked today as a gap (correct for the
+  // heatmap/trend), but that would zero out a real streak before the user
+  // has had a chance to check in today — drop today from the streak
+  // calculation unless it already has a recorded entry.
+  const todayStr = today.toISOString().slice(0, 10);
+  const hasTodayEntry = entries.some((e) => e.date === todayStr);
+  const streakResults = hasTodayEntry ? results : results.slice(0, -1);
+
+  return {
+    goal,
+    results,
+    milestones,
+    entryCount: entries.length,
+    currentStreak: calculateCurrentStreak(streakResults),
+    longestStreak: calculateLongestStreak(results),
+    totalSuccessCount: calculateTotalSuccessCount(results),
+  };
 }
