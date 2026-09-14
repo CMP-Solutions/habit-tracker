@@ -48,10 +48,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if (periodicity === "count_per_period") {
-    const effectiveType = type ?? existing.type;
-    if (effectiveType !== "boolean") {
-      return NextResponse.json({ error: "count_per_period is only available for boolean goals." }, { status: 400 });
-    }
     if (!["week", "month"].includes(periodUnit)) {
       return NextResponse.json({ error: "periodUnit must be 'week' or 'month'." }, { status: 400 });
     }

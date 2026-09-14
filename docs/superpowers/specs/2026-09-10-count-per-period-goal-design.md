@@ -22,8 +22,12 @@ Goal (Erweiterung)
   periodTarget: Int | null                                 // nur bei count_per_period, z.B. 3
 ```
 
-- Nur für `type: "boolean"` wählbar — bei quantitativen Zielen bleibt der
-  bestehende Tageszielwert-Mechanismus die einzige Option.
+- Für beide `type`-Werte wählbar (`"boolean"` und `"quantitative"`, seit
+  2026-09-14) — bei `type: "quantitative"` bleibt der tägliche
+  Zielwert-Mechanismus (`targetValue`/`unit`/`step`) unverändert für die
+  Tageserfolg-Ermittlung zuständig, `count_per_period` zählt dann, an wie
+  vielen Tagen dieser Tageswert im Zeitraum erreicht wurde (z.B. "3x pro
+  Woche 10.000 Schritte").
 - `periodUnit`/`periodTarget` sind Pflichtfelder bei
   `periodicity: "count_per_period"`, sonst ungenutzt (kein Reset beim
   Wechsel der Periodizität nötig, da nur bei diesem Typ gelesen).
@@ -78,9 +82,9 @@ Keine Code-Duplikation der Streak-/Meilenstein-Berechnung.
 
 - **Neues-Ziel-Formular** (`GoalForm`): dritte Periodizitäts-Option
   "X-mal pro Zeitraum", zeigt bei Auswahl zwei zusätzliche Felder
-  (Zeitraum: Woche/Monat-Dropdown, Anzahl X). Nur sichtbar/aktivierbar
-  wenn `type = "boolean"` (bei `type = "quantitative"` bleibt die Option
-  ausgeblendet).
+  (Zeitraum: Woche/Monat-Dropdown, Anzahl X). Für beide `type`-Werte
+  sichtbar; bei `type = "quantitative"` erscheinen zusätzlich die
+  bestehenden Tageszielwert-Felder (Zielmenge/Einheit/Schrittgröße).
 - **Dashboard** (`GoalCard`): zeigt bei `count_per_period`-Zielen einen
   Text-Fortschritt unter dem Titel, z.B. "2 von 3 diese Woche", aus dem
   neuen `periodProgress`-Feld.

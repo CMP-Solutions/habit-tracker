@@ -159,21 +159,27 @@ describe("/api/goals", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects a count_per_period goal for a quantitative type", async () => {
+  it("creates a count_per_period goal for a quantitative type", async () => {
     const res = await POST(
       new Request("http://localhost/api/goals", {
         method: "POST",
         body: JSON.stringify({
-          title: "Bad goal",
+          title: "3x pro Woche 10000 Schritte",
           type: "quantitative",
+          unit: "Schritte",
           periodicity: "count_per_period",
           periodUnit: "week",
           periodTarget: 3,
-          targetValue: 5,
+          targetValue: 10000,
         }),
       })
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(201);
+    const goal = await res.json();
+    expect(goal.type).toBe("quantitative");
+    expect(goal.periodUnit).toBe("week");
+    expect(goal.periodTarget).toBe(3);
+    expect(goal.targetValue).toBe(10000);
   });
 
   it("rejects an invalid periodUnit", async () => {
@@ -200,6 +206,37 @@ describe("/api/goals", () => {
     const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7)); // this week's Monday
     await db.entry.create({ data: { goalId: goal.id, date: monday, done: true } });
+
+    const res = await GET();
+    const goals = await res.json();
+    const found = goals.find((g: { id: string }) => g.id === goal.id);
+    expect(found.periodProgress).toEqual({ current: 1, target: 3 });
+  });
+
+  it("counts only days that meet the daily targetValue toward periodProgress for a quantitative count_per_period goal", async () => {
+    const goal = await db.goal.create({
+      data: {
+        userId,
+        title: "3x pro Woche 10000 Schritte",
+        type: "quantitative",
+        unit: "Schritte",
+        targetValue: 10000,
+        periodicity: "count_per_period",
+        periodUnit: "week",
+        periodTarget: 3,
+      },
+    });
+    const today = new Date();
+    const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    const tuesday = new Date(monday);
+    tuesday.setUTCDate(tuesday.getUTCDate() + 1);
+
+    // Monday falls short of the daily target — must not count toward the
+    // weekly periodTarget just because an entry exists for that day.
+    await db.entry.create({ data: { goalId: goal.id, date: monday, value: 4000 } });
+    // Tuesday clears it.
+    await db.entry.create({ data: { goalId: goal.id, date: tuesday, value: 12000 } });
 
     const res = await GET();
     const goals = await res.json();

@@ -148,9 +148,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "weeklyThreshold is required for weekly goals." }, { status: 400 });
   }
   if (periodicity === "count_per_period") {
-    if (type !== "boolean") {
-      return NextResponse.json({ error: "count_per_period is only available for boolean goals." }, { status: 400 });
-    }
     if (!["week", "month"].includes(periodUnit)) {
       return NextResponse.json({ error: "periodUnit must be 'week' or 'month'." }, { status: 400 });
     }

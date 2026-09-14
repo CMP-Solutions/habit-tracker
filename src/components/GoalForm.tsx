@@ -115,13 +115,6 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
     fetch("/api/categories").then((res) => res.json()).then(setCategories);
   }, []);
 
-  function handleTypeChange(v: "boolean" | "quantitative") {
-    setType(v);
-    if (v === "quantitative" && periodicity === "count_per_period") {
-      setPeriodicity("daily");
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -172,7 +165,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
         <Label>Typ</Label>
         <ToggleGroup
           value={type}
-          onChange={handleTypeChange}
+          onChange={setType}
           options={[
             { value: "boolean", label: "Abhaken (Ja/Nein)" },
             { value: "quantitative", label: "Menge eintragen" },
@@ -213,7 +206,7 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
           <SelectContent>
             <SelectItem value="daily">Täglich</SelectItem>
             <SelectItem value="weekly">Wöchentlich</SelectItem>
-            {type === "boolean" && <SelectItem value="count_per_period">Mehrmals in einem Zeitraum</SelectItem>}
+            <SelectItem value="count_per_period">Mehrmals in einem Zeitraum</SelectItem>
           </SelectContent>
         </Select>
       </div>

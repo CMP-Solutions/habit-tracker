@@ -28,7 +28,7 @@ Requires a local PostgreSQL with two databases: `habit_tracker` (dev, `.env` fro
 **Goal model.** A `Goal` is `type: "boolean" | "quantitative"` crossed with `periodicity: "daily" | "weekly" | "count_per_period"`:
 - `daily` — success per calendar day (boolean `done`, or `value >= targetValue`).
 - `weekly` — success if `weeklyThreshold` days in the calendar week (Mon–Sun) succeed.
-- `count_per_period` — success if `periodTarget` successful days occur within a `periodUnit` (`"week"` or `"month"`) window; boolean goals only.
+- `count_per_period` — success if `periodTarget` successful days occur within a `periodUnit` (`"week"` or `"month"`) window; available for both boolean and quantitative goals.
 
 An `Entry` is one row per `(goalId, date)` (UTC midnight), upserted — re-submitting the same day updates rather than duplicates. Streaks, weekly/period evaluation, and milestone awards are all *derived*, never stored, and recomputed from the entry history on read.
 
