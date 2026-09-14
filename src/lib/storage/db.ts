@@ -57,7 +57,7 @@ export const db = new Dexie("ritual") as RitualDb;
 
 db.version(1).stores({
   categories: "id, name",
-  goals: "id, archived, categoryId",
+  goals: "id, archived, categoryId, createdAt",
   entries: "id, goalId, date, [goalId+date]",
   milestones: "id, goalId, [goalId+type+threshold]",
 });
