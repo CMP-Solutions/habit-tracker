@@ -48,50 +48,53 @@ export default function WeekPage() {
       {data.goals.length === 0 ? (
         <p className="text-muted-foreground">Noch keine Ziele angelegt.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card backdrop-blur-xl">
+        <div className="flex overflow-hidden rounded-xl border bg-card backdrop-blur-xl">
           {/*
-            CSS grid, not an HTML table: `position: sticky` on a <td>/<th>
-            inside a <table> is unreliable in Safari — confirmed on real
-            iOS Safari, where the sticky header and first-column cells
-            rendered as one oversized floating box instead of staying
-            confined to their own row. A grid with the goal-name column
-            reused on every row via `sticky left-0` behaves correctly
-            across browsers, the same "frozen first column" a spreadsheet
-            gives you when scrolling right.
+            Two independent columns instead of one grid with a sticky first
+            column. A sticky cell is an overlay painted OVER the scrolling
+            content behind it, which forced it to carry an opaque fill that
+            had to color-match whatever happens to show through the
+            translucent card at that spot — the card's tint blends with the
+            animated aurora background live, so a static color could get
+            close but never stay pixel-identical (visible as a faint box
+            across three rounds of color fixes).
 
-            The horizontal padding lives on the sticky column's own left
-            edge and the last day column's right edge, not on this
-            overflow-x-auto div: a scroll container's own padding is part
-            of its scrollable area, so scrolled-past content can slide
-            into it and stay paintable there — confirmed via
-            elementFromPoint() at a point inside the old p-4 gutter, which
-            hit a day column that should already have scrolled out of
-            view. Zero padding here means there's no such gutter for
-            anything to reappear in; the outer div (not a scroll
-            container) keeps the visual border/corners/background.
+            Splitting into a static flex column (goal names) next to an
+            independently scrolling one (day cells) needs no fill at all:
+            the static column is a normal sibling in the document, not an
+            overlay, so it simply shows the same shared card background as
+            everything else. Scrolled-away day content can't bleed into it
+            either, since it's structurally outside the scrolling element's
+            box, not just visually covered by it — the "invisible wall" is
+            just the edge of the scroll container itself.
+
+            Row heights are kept in sync across the two independent columns
+            with an explicit h-14 (header) / h-12 (goal rows) on both
+            sides, since nothing here shares a single grid to
+            auto-equalize them anymore.
           */}
-          <div className="overflow-x-auto py-4">
-            <div className="grid min-w-[644px] grid-cols-[140px_repeat(7,72px)]">
-              {/* Sticky+opaque only below md: the grid's ~644px min-width
-                  never needs horizontal scroll at md and up inside this
-                  max-w-4xl page, so keeping it sticky there just paints an
-                  opaque block over the glass card for no functional reason.
-                  The fill is --card's own hue/lightness at full opacity, not
-                  --popover — that token is a full step darker and slightly
-                  less saturated, which read as a mismatched black box glued
-                  onto the card instead of "the same glass, just less
-                  see-through here" (feedback after shipping the bg-popover
-                  version). Full opacity (not backdrop-blur) still avoids the
-                  original double-blur bug: stacking another blur on the
-                  already-blurred card compounded into a visibly flat patch. */}
-              <div className="sticky left-0 z-10 bg-[oklch(0.32_0.02_225)] py-0 pr-2 pb-3 pl-4 text-left text-sm font-medium text-muted-foreground md:static md:bg-transparent md:pl-2">
-                Ziel
+          <div className="flex w-[140px] shrink-0 flex-col border-r border-border/60">
+            <div className="flex h-14 items-end pb-3 pl-4 text-left text-sm font-medium text-muted-foreground">
+              Ziel
+            </div>
+            {data.goals.map((goal) => (
+              <div
+                key={goal.id}
+                className="flex h-12 items-center gap-2 border-t border-border/60 pl-4 text-sm font-medium"
+              >
+                {goal.icon && <span className="text-base leading-none">{goal.icon}</span>}
+                <span className="truncate">{goal.title}</span>
               </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="grid min-w-[504px] grid-cols-[repeat(7,72px)]">
               {data.days.map((day, i) => (
                 <div
                   key={day}
                   ref={day === today ? todayColRef : undefined}
-                  className={`px-2 pb-3 text-center text-xs font-normal ${i === data.days.length - 1 ? "pr-4 md:pr-2" : ""} ${
+                  className={`flex h-14 flex-col justify-end px-2 pb-3 text-center text-xs font-normal ${i === data.days.length - 1 ? "pr-4" : ""} ${
                     day === today ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
@@ -102,16 +105,10 @@ export default function WeekPage() {
 
               {data.goals.map((goal) => (
                 <Fragment key={goal.id}>
-                  <div className="sticky left-0 z-10 flex items-center border-t border-border/60 bg-[oklch(0.32_0.02_225)] py-2 pr-3 pl-4 md:static md:bg-transparent md:pl-2">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      {goal.icon && <span className="text-base leading-none">{goal.icon}</span>}
-                      {goal.title}
-                    </span>
-                  </div>
                   {data.days.map((day, i) => (
                     <div
                       key={day}
-                      className={`border-t border-border/60 p-1 text-center ${i === data.days.length - 1 ? "pr-4 md:pr-1" : ""}`}
+                      className={`flex h-12 items-center justify-center border-t border-border/60 ${i === data.days.length - 1 ? "pr-4" : ""}`}
                     >
                       <WeekCell
                         key={`${goal.entries[day]?.done ?? ""}-${goal.entries[day]?.value ?? ""}`}
