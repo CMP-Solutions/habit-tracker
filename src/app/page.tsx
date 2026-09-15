@@ -9,6 +9,8 @@ import { NumberTicker } from "@/components/magicui/number-ticker";
 import { GOAL_TEMPLATES } from "@/lib/domain/goalTemplates";
 import { listGoalsWithProgress, createGoal, type GoalWithProgress } from "@/lib/storage/goals";
 import { countOpenGoals, maybeShowReminder } from "@/lib/reminders";
+import { useUserName } from "@/components/OnboardingGate";
+import { possessive } from "@/lib/user";
 
 const WEEKDAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
 const DATE_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long" });
@@ -23,6 +25,7 @@ function completionRatio(goal: GoalWithProgress): number {
 export default function DashboardPage() {
   const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const today = new Date();
+  const userName = useUserName();
 
   const load = useCallback(async () => {
     const data = await listGoalsWithProgress();
@@ -67,7 +70,9 @@ export default function DashboardPage() {
       </header>
 
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Ziele</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">
+          {userName ? `${possessive(userName)} Ziele` : "Ziele"}
+        </h2>
         <Link href="/goals/new" className={buttonVariants({ size: "sm" })}>
           <Plus /> Neues Ziel
         </Link>

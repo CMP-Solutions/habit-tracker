@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { NavBar } from "@/components/NavBar";
+import { OnboardingGate } from "@/components/OnboardingGate";
 import "./globals.css";
 
 // Body: a humanist grotesque — open apertures, quiet at small sizes.
@@ -39,9 +40,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <AuroraBackground />
-        <NavBar />
-        {/* Bottom padding clears the fixed mobile tab bar (see NavBar). */}
-        <div className="pb-16 sm:pb-0">{children}</div>
+        <OnboardingGate>
+          <NavBar />
+          {/* Bottom padding clears the fixed mobile tab bar (see NavBar). */}
+          <div className="pb-16 sm:pb-0">{children}</div>
+        </OnboardingGate>
       </body>
     </html>
   );
