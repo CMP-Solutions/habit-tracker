@@ -2,28 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-
-interface WeekEntry {
-  done: boolean;
-  value: number | null;
-}
-
-interface WeekGoal {
-  id: string;
-  title: string;
-  icon: string | null;
-  type: "boolean" | "quantitative";
-  unit: string | null;
-  targetValue: number | null;
-  step: number;
-  category: { name: string; color: string } | null;
-  entries: Record<string, WeekEntry | null>;
-}
-
-interface WeekResponse {
-  days: string[];
-  goals: WeekGoal[];
-}
+import { getWeek, type WeekResult, type WeekGoal, type WeekEntry } from "@/lib/storage/week";
+import { recordEntry } from "@/lib/storage/entries";
 
 const WEEKDAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "UTC" });
 const DAY_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
@@ -35,19 +15,16 @@ function isComplete(goal: WeekGoal, entry: WeekEntry | null): boolean {
 }
 
 export default function WeekPage() {
-  const [data, setData] = useState<WeekResponse | null>(null);
+  const [data, setData] = useState<WeekResult | null>(null);
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
   const todayColRef = useRef<HTMLTableCellElement>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/week");
-    if (res.ok) setData(await res.json());
+    setData(await getWeek());
   }, []);
 
   useEffect(() => {
-    fetch("/api/week").then((res) => (res.ok ? res.json() : null)).then((json) => {
-      if (json) setData(json);
-    });
+    getWeek().then(setData);
   }, []);
 
   // The visible range is Mon-Sun, and today can land anywhere in it (unlike
@@ -58,11 +35,7 @@ export default function WeekPage() {
   }, [data]);
 
   async function saveEntry(goalId: string, date: string, done: boolean, value?: number) {
-    await fetch("/api/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goalId, date, done, value }),
-    });
+    await recordEntry({ goalId, date, done, value });
     load();
   }
 
