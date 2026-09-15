@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Habit/goal tracker (German UI). Next.js App Router + TypeScript, Prisma/PostgreSQL, NextAuth credentials auth, Tailwind + shadcn/ui, Recharts. Design spec: `docs/superpowers/specs/2026-09-10-habit-tracker-design.md` and `docs/superpowers/specs/2026-09-10-count-per-period-goal-design.md`.
+Habit/goal tracker (German UI). Next.js App Router + TypeScript, Dexie (IndexedDB) for local-only persistence, Tailwind + shadcn/ui, Recharts. No server account, no login — all data lives in the browser (see `docs/superpowers/specs/2026-09-14-local-storage-migration.md`). Design spec: `docs/superpowers/specs/2026-09-10-habit-tracker-design.md` and `docs/superpowers/specs/2026-09-10-count-per-period-goal-design.md`.
 
 ## Commands
 
@@ -17,11 +17,9 @@ npm run lint             # eslint
 npm test                   # vitest run (all tests)
 npx vitest run <path>   # single test file
 npx vitest              # watch mode
-npx prisma migrate dev --name <name>   # new migration (after editing prisma/schema.prisma)
-npx prisma generate                     # regenerate client after schema changes
 ```
 
-Requires a local PostgreSQL with two databases: `habit_tracker` (dev, `.env` from `.env.example`) and `habit_tracker_test` (test, `.env.test` from `.env.test.example`). `vitest.setup.ts` refuses to run if `DATABASE_URL` doesn't contain `habit_tracker_test` — this guards against tests truncating the dev database.
+No database or environment variables to set up — all persistence is client-side IndexedDB (via Dexie).
 
 ## Architecture
 
@@ -32,23 +30,25 @@ Requires a local PostgreSQL with two databases: `habit_tracker` (dev, `.env` fro
 
 An `Entry` is one row per `(goalId, date)` (UTC midnight), upserted — re-submitting the same day updates rather than duplicates. Streaks, weekly/period evaluation, and milestone awards are all *derived*, never stored, and recomputed from the entry history on read.
 
-**Domain logic lives in `src/lib/domain/`, decoupled from Prisma and Next.js** — pure functions over plain `DailyResult`/`DayEntry` arrays, unit-tested in `__tests__/`:
-- `window.ts` — UTC date helpers; all dates are UTC-midnight `Date`s or `"YYYY-MM-DD"` strings, never local time (documented limitation: a day boundary is the server's UTC day, not the user's).
+**Domain logic lives in `src/lib/domain/`, decoupled from persistence and Next.js** — pure functions over plain `DailyResult`/`DayEntry` arrays, unit-tested in `__tests__/`:
+- `window.ts` — UTC date helpers; all dates are UTC-midnight `Date`s or `"YYYY-MM-DD"` strings, never local time (documented limitation: a day boundary is the browser's UTC day, not the user's).
 - `streak.ts` — current/longest streak, total success count over a `DailyResult[]`.
 - `weeklyGoal.ts` — groups entries into calendar weeks.
 - `periodCount.ts` — `count_per_period` evaluation; groups into weeks or months via `periodBounds`/`groupIntoCalendarPeriods`.
 - `densify.ts` — fills gaps in a sparse entry list so streak/heatmap logic sees an unbroken daily sequence.
-- `milestones.ts` — `determineNewMilestones` diffs current streak/total-count against `STREAK_THRESHOLDS`/`TOTAL_COUNT_THRESHOLDS` and already-awarded milestones; idempotent per `(goalId, type, threshold)` (DB-enforced unique constraint).
+- `milestones.ts` — `determineNewMilestones` diffs current streak/total-count against `STREAK_THRESHOLDS`/`TOTAL_COUNT_THRESHOLDS` and already-awarded milestones; idempotent per `(goalId, type, threshold)` by application logic (checked against already-awarded milestones before writing), not a storage-level constraint.
 - `goalIcons.ts` / `goalTemplates.ts` — curated emoji set and starter goal presets.
 
-API routes (`src/app/api/**/route.ts`) are the only place domain functions meet Prisma: fetch entries, map to `DailyResult`/`DayEntry`, call the pure function, persist the result. Every route re-derives auth via `getServerSession(authOptions)` and scopes queries by `session.user.id` — there's no shared request-level auth middleware for data access, only route-level checks (route-based page protection is in `src/middleware.ts`). A `Category` can only be referenced by its owner; routes that accept a `categoryId` re-validate ownership before writing (see `src/app/api/goals/route.ts`).
+**`src/lib/storage/` is the only place domain functions meet persistence** — one file per data domain (`categories.ts`, `goals.ts`, `entries.ts`, `milestones.ts`, `stats.ts`, `week.ts`, `backup.ts`), each reading/writing the single Dexie database (`src/lib/storage/db.ts`) and calling the pure domain functions to derive streaks, period success, and milestones. There is no server, no user account, and no per-user scoping — the whole IndexedDB database belongs to whoever is using that browser. A `Category` still can't be referenced by a `Goal` that doesn't know about it; `goals.ts` validates a given `categoryId` actually exists locally before writing.
 
-**Push reminders** (`src/app/api/push/send-reminders/route.ts`) are triggered by an external cron hitting the endpoint with `Authorization: Bearer $CRON_SECRET` — not a user session. `src/lib/push.ts` exposes `pushConfigured` (false when VAPID env vars are absent) so the route can no-op safely.
+**Reminders** (`src/lib/reminders.ts`) are a plain browser `Notification`, shown at most once per day in the evening, only while the app is open — no server, no service worker, no push subscription. This is a deliberate scope limit versus the retired server-push design: there is no way to notify a user whose browser is fully closed.
 
-**Testing.** `route.test.ts` files are integration tests against the real (test) Postgres via Prisma — no mocking. `vitest.config.ts` disables file parallelism because these tests truncate shared tables between runs; keep that in mind when adding new route tests (don't assume isolation across files, do assume it within one file's sequential execution). Domain unit tests in `src/lib/domain/__tests__/` need no DB.
+**Backup** (`src/lib/storage/backup.ts`) is the only way to move data between devices or protect against accidental data loss — `exportData()`/`importData()` serialize/restore all four tables as JSON, wired into Settings → Daten. Import replaces all local data; it never merges.
+
+**Testing.** `src/lib/storage/__tests__/*.test.ts` are integration tests against an in-memory IndexedDB (`fake-indexeddb`, imported via `fake-indexeddb/auto`) — no real browser needed, no shared state between test files. Domain unit tests in `src/lib/domain/__tests__/` need no storage at all.
 
 ## Conventions
 
-- All dates that represent a calendar day (not a timestamp) are UTC midnight — use `utcToday`/`parseUtcDateString` from `src/lib/domain/window.ts` rather than constructing `Date`s directly, to avoid local-timezone drift.
+- All dates that represent a calendar day (not a timestamp) are UTC midnight — use `utcToday`/`parseUtcDateString` from `src/lib/domain/window.ts` rather than constructing `Date`s directly, to avoid local-timezone drift. In `src/lib/storage/*`, records store these as `"YYYY-MM-DD"` strings; convert to `Date` only at the boundary where a domain function requires it.
 - Goals are archived, not deleted, to preserve history/stats; only an entry-less goal can be hard-deleted.
 - A goal past its `endDate` drops out of "today"/"week" views but stays visible in stats/milestones (filtered at the query level, not by mutating state).

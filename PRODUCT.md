@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Anyone who wants to track recurring habits/goals over time — not built as a single-person personal tool; each user has their own account (email/password), categories, and goals, isolated from other users' data.
+Anyone who wants to track recurring habits/goals over time — not built as a single-person personal tool, but each person's data lives only in their own browser (no server account, no login): categories, goals, and entries are private to whichever browser recorded them.
 
 ## Product Purpose
 
@@ -23,12 +23,12 @@ Existing habit trackers (and general tools like Apple Health or a notes app) don
 - Daily use: check in on today's goals (boolean tick or numeric value entry) from a dashboard.
 - Periodic review: inspect a single goal's history (heatmap + trend chart) or an overall stats view across goals/categories.
 - Occasional setup: create/edit goals and categories, choose type (boolean/quantitative), periodicity (daily/weekly/count_per_period), and — where applicable — thresholds.
-- Optional: opt into push reminders (Web Push), sent by an external cron job hitting a secret-protected endpoint, not by an in-app scheduler.
+- Optional: opt into a browser notification reminder, shown in the evening while the app is open if goals are still unchecked — not a server-sent push, so it can't reach a closed browser.
 
 ## Capabilities and Constraints
 
-- Auth: email/password (NextAuth Credentials, bcrypt), no OAuth.
-- A day is defined by the server's UTC calendar day, not the user's local timezone — a known, accepted limitation (documented in `docs/superpowers/specs/2026-09-10-habit-tracker-design.md`).
+- No accounts, no login — the app is freely accessible, and all data (goals, categories, entries, milestones) lives in IndexedDB in whichever browser is being used. Two people sharing one browser share one dataset; this is an accepted limitation, not a bug (see `docs/superpowers/specs/2026-09-14-local-storage-migration.md`).
+- A day is defined by the browser's UTC calendar day, not the user's local timezone — a known, accepted limitation carried over unchanged from the earlier server-based design (documented in `docs/superpowers/specs/2026-09-10-habit-tracker-design.md`).
 - Goals are archived, never deleted, once they have entries, to preserve history/stats.
 - Milestones (streak thresholds 7/30/100, total-count threshold 100) are automatic only — no user-defined milestones.
 - No social features (friends, shared goals, leaderboards) and no native mobile app — web only.
@@ -42,4 +42,4 @@ No real user content, testimonials, or brand assets exist yet — the German-lan
 - Model habit success precisely (daily / X-of-7-weekly / count-per-period), rather than forcing every habit into a single generic "did you do it" checkbox.
 - Derive, don't store: streaks, period success, and milestones are computed from entry history on read, not cached state that can drift.
 - Past history is never lost — goals archive instead of delete, backfilled entries recompute derived state rather than being rejected.
-- Each user's data (goals, categories, entries) is strictly isolated; nothing is shared or visible across accounts.
+- Each browser's data is private to that browser; there is no concept of a user account, and nothing is synced or shared across devices. A manual JSON export/import (Settings → Daten) is the only way to move data between devices or back it up.
