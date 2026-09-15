@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Heatmap } from "@/components/Heatmap";
 import { TrendChart } from "@/components/TrendChart";
+import { getStats } from "@/lib/storage/stats";
 
 interface DayStat {
   date: string;
@@ -31,24 +32,13 @@ export default function StatsPage() {
   // shrink it to mostly-empty (see 2026-09-11 critique, "range selector
   // doesn't visibly affect the heatmap").
   const [heatmapData, setHeatmapData] = useState<StatsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/stats?days=${trendDays}`).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Auswertung konnte nicht geladen werden.");
-        return;
-      }
-      setError(null);
-      setTrendData(await res.json());
-    });
+    getStats(trendDays).then(setTrendData);
   }, [trendDays]);
 
   useEffect(() => {
-    fetch("/api/stats?days=365").then((res) => (res.ok ? res.json() : null)).then((json) => {
-      if (json) setHeatmapData(json);
-    });
+    getStats(365).then(setHeatmapData);
   }, []);
 
   const heatmapResults = toResults(heatmapData).map((s) => ({ date: s.date, success: s.successCount === s.totalCount }));
@@ -73,8 +63,6 @@ export default function StatsPage() {
           </div>
         )}
       </div>
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Gesamt-Heatmap (alle Ziele, letzte 12 Monate)</h2>
