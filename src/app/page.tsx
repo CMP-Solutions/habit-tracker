@@ -7,25 +7,13 @@ import { GoalCard } from "@/components/GoalCard";
 import { buttonVariants } from "@/components/ui/button";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { GOAL_TEMPLATES } from "@/lib/domain/goalTemplates";
-
-interface Goal {
-  id: string;
-  title: string;
-  icon: string | null;
-  type: "boolean" | "quantitative";
-  unit: string | null;
-  targetValue: number | null;
-  step: number;
-  category: { name: string; color: string } | null;
-  todayEntry: { done: boolean; value: number | null } | null;
-  periodProgress: { current: number; target: number } | null;
-  currentStreak: number;
-}
+import { listGoalsWithProgress, createGoal, type GoalWithProgress } from "@/lib/storage/goals";
+import { countOpenGoals, maybeShowReminder } from "@/lib/reminders";
 
 const WEEKDAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
 const DATE_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long" });
 
-function completionRatio(goal: Goal): number {
+function completionRatio(goal: GoalWithProgress): number {
   if (goal.type === "boolean") return goal.todayEntry?.done ? 1 : 0;
   const target = goal.targetValue ?? 0;
   if (target <= 0) return 0;
@@ -33,26 +21,24 @@ function completionRatio(goal: Goal): number {
 }
 
 export default function DashboardPage() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const today = new Date();
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/goals");
-    if (res.ok) setGoals(await res.json());
+    const data = await listGoalsWithProgress();
+    setGoals(data);
+    maybeShowReminder(countOpenGoals(data));
   }, []);
 
   useEffect(() => {
-    fetch("/api/goals").then((res) => (res.ok ? res.json() : null)).then((data) => {
-      if (data) setGoals(data);
+    listGoalsWithProgress().then((data) => {
+      setGoals(data);
+      maybeShowReminder(countOpenGoals(data));
     });
   }, []);
 
   async function addTemplate(template: (typeof GOAL_TEMPLATES)[number]) {
-    await fetch("/api/goals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(template),
-    });
+    await createGoal(template);
     load();
   }
 
