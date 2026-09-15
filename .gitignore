@@ -40,8 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# keep the example env file committed
-!.env.example
-
-# keep the example test env file committed
-!.env.test.example
+# impeccable design skill: local tool state, not application code
+.impeccable/
