@@ -176,6 +176,20 @@ describe("goals storage", () => {
     expect(daily?.periodProgress).toBeNull();
   });
 
+  it("includes the goal's category as { name, color } when it has one", async () => {
+    const category = await createCategory({ name: "Gesundheit", color: "#22c55e", icon: "heart" });
+    const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily", categoryId: category.id });
+
+    const goals = await listGoalsWithProgress();
+    expect(goals.find((g) => g.id === goal.id)?.category).toEqual({ name: "Gesundheit", color: "#22c55e" });
+  });
+
+  it("returns null category for a goal without one", async () => {
+    const goal = await createGoal({ title: "Ohne Kategorie", type: "boolean", periodicity: "daily" });
+    const goals = await listGoalsWithProgress();
+    expect(goals.find((g) => g.id === goal.id)?.category).toBeNull();
+  });
+
   it("counts a backfilled entry dated before the goal's own createdAt toward the streak", async () => {
     // Regression guard, ported from the Prisma-era fix: a goal created
     // "today" but backfilled for yesterday must still extend the streak.

@@ -121,6 +121,7 @@ export async function deleteGoal(id: string): Promise<void> {
 }
 
 export interface GoalWithProgress extends GoalRecord {
+  category: { name: string; color: string } | null;
   todayEntry: { done: boolean; value: number | null } | null;
   periodProgress: { current: number; target: number } | null;
   currentStreak: number;
@@ -142,6 +143,9 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
   const goalIds = goals.map((g) => g.id);
   const todaysEntries = await db.entries.where("goalId").anyOf(goalIds).and((e) => e.date === todayStr).toArray();
   const entryByGoal = new Map(todaysEntries.map((e) => [e.goalId, e]));
+
+  const categories = await db.categories.toArray();
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
 
   const periodProgressByGoal = new Map<string, { current: number; target: number }>();
   for (const goal of goals) {
@@ -204,8 +208,10 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
 
   return goals.map((goal) => {
     const entry = entryByGoal.get(goal.id);
+    const category = goal.categoryId ? categoryById.get(goal.categoryId) : undefined;
     return {
       ...goal,
+      category: category ? { name: category.name, color: category.color } : null,
       todayEntry: entry ? { done: entry.done, value: entry.value } : null,
       periodProgress: periodProgressByGoal.get(goal.id) ?? null,
       currentStreak: streakByGoal.get(goal.id) ?? 0,

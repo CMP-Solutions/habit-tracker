@@ -20,6 +20,7 @@ function goal(overrides: Partial<GoalWithProgress> = {}): GoalWithProgress {
     periodTarget: null,
     archived: false,
     createdAt: "2026-09-01",
+    category: null,
     todayEntry: null,
     periodProgress: null,
     currentStreak: 0,
