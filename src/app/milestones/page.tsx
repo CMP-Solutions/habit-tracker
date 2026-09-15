@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Trophy } from "lucide-react";
+import { getMilestones } from "@/lib/storage/milestones";
 
 interface AchievedMilestone {
   id: string;
@@ -31,18 +32,9 @@ function milestoneLabel(type: string, threshold: number): string {
 
 export default function MilestonesPage() {
   const [data, setData] = useState<MilestonesResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/milestones").then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Meilensteine konnten nicht geladen werden.");
-        return;
-      }
-      setError(null);
-      setData(await res.json());
-    });
+    getMilestones().then(setData);
   }, []);
 
   const achieved = data?.achieved ?? [];
@@ -51,9 +43,7 @@ export default function MilestonesPage() {
   return (
     <main className="mx-auto w-full max-w-2xl space-y-8 px-6 py-10">
       <h1 className="font-heading text-3xl">Meilensteine</h1>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      {!error && upcoming.length > 0 && (
+      {upcoming.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-muted-foreground">Als Nächstes</h2>
           <ul className="space-y-2">
@@ -90,7 +80,7 @@ export default function MilestonesPage() {
 
       <section className="space-y-2">
         {upcoming.length > 0 && <h2 className="text-sm font-medium text-muted-foreground">Erreicht</h2>}
-        {!error && achieved.length === 0 && (
+        {achieved.length === 0 && (
           <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
             Noch keine Meilensteine erreicht.
           </div>
