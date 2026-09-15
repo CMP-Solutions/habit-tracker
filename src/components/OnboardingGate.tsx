@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getUserName, setUserName, possessive } from "@/lib/user";
+import { CmpLogo } from "@/components/CmpLogo";
 
 type Phase = "loading" | "prompt" | "welcome" | "app";
 
@@ -105,6 +106,20 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
                   layoutId="onboarding-surface"
                   className="w-full max-w-sm rounded-xl border bg-card p-10 text-center backdrop-blur-xl"
                 >
+                  <motion.div
+                    initial={reducedMotion ? false : { opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{
+                      duration: reducedMotion ? 0.05 : 0.6,
+                      ease: reducedMotion ? "linear" : [0.34, 1.56, 0.64, 1],
+                    }}
+                    className="mx-auto mb-5 flex flex-col items-center gap-2"
+                  >
+                    <CmpLogo className="size-12 drop-shadow-[0_0_18px_rgba(99,140,255,0.55)]" />
+                    <p className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">
+                      by CMP Solutions
+                    </p>
+                  </motion.div>
                   <motion.p
                     initial={reducedMotion ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}

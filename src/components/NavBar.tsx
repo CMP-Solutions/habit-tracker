@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, CalendarDays, BarChart3, Trophy, Settings, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { CmpLogo } from "@/components/CmpLogo";
 
 const LINKS = [
   { href: "/", label: "Heute", icon: Home },
@@ -21,7 +22,10 @@ export function NavBar() {
       {/* Desktop/tablet: full text nav. Hidden on phone widths, where five
           labels plus logout never fit without truncating. */}
       <nav className="sticky top-0 z-40 hidden items-center gap-2 border-b bg-card/60 px-6 backdrop-blur-xl sm:flex">
-        <span className="shrink-0 font-heading text-lg text-foreground">Ritual</span>
+        <span className="flex shrink-0 items-center gap-2 font-heading text-lg text-foreground">
+          <CmpLogo className="size-5" />
+          Ritual
+        </span>
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {LINKS.map((link) => {
             const active = pathname === link.href;
@@ -46,7 +50,10 @@ export function NavBar() {
 
       {/* Phone: compact top bar (logo). */}
       <nav className="sticky top-0 z-40 flex items-center justify-between border-b bg-card/60 px-4 py-3 backdrop-blur-xl sm:hidden">
-        <span className="font-heading text-lg text-foreground">Ritual</span>
+        <span className="flex items-center gap-2 font-heading text-lg text-foreground">
+          <CmpLogo className="size-5" />
+          Ritual
+        </span>
       </nav>
 
       {/* ...plus a fixed icon tab bar for navigation, the standard mobile
