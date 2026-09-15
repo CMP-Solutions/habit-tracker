@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { NavBar } from "@/components/NavBar";
-import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
 import "./globals.css";
 
 // Body: a humanist grotesque — open apertures, quiet at small sizes.
@@ -40,12 +39,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <AuroraBackground />
-        <SessionProviderWrapper>
-          <NavBar />
-          {/* Bottom padding clears the fixed mobile tab bar (see NavBar);
-              harmless on /login and /register, which render neither. */}
-          <div className="pb-16 sm:pb-0">{children}</div>
-        </SessionProviderWrapper>
+        <NavBar />
+        {/* Bottom padding clears the fixed mobile tab bar (see NavBar). */}
+        <div className="pb-16 sm:pb-0">{children}</div>
       </body>
     </html>
   );

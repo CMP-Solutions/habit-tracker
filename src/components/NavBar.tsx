@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
-import { Home, CalendarDays, BarChart3, Trophy, Settings, LogOut, Plus } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Home, CalendarDays, BarChart3, Trophy, Settings, Plus } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 
 const LINKS = [
   { href: "/", label: "Heute", icon: Home },
@@ -16,7 +15,6 @@ const LINKS = [
 
 export function NavBar() {
   const pathname = usePathname();
-  if (pathname === "/login" || pathname === "/register") return null;
 
   return (
     <>
@@ -44,25 +42,11 @@ export function NavBar() {
         <Link href="/goals/new" className={buttonVariants({ size: "sm", className: "shrink-0" })}>
           <Plus /> Neues Ziel
         </Link>
-        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/login" })}>
-          Abmelden
-        </Button>
       </nav>
 
-      {/* Phone: compact top bar (logo + logout)... */}
+      {/* Phone: compact top bar (logo). */}
       <nav className="sticky top-0 z-40 flex items-center justify-between border-b bg-card/60 px-4 py-3 backdrop-blur-xl sm:hidden">
         <span className="font-heading text-lg text-foreground">Ritual</span>
-        {/* The only way to log out on phone — sized to the 44px touch-target
-            floor rather than the icon-sm token, which measures 28px. */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="size-11"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          aria-label="Abmelden"
-        >
-          <LogOut />
-        </Button>
       </nav>
 
       {/* ...plus a fixed icon tab bar for navigation, the standard mobile
