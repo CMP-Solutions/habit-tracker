@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GOAL_ICONS, isGoalIcon, type GoalIcon } from "@/lib/domain/goalIcons";
+import { listCategories } from "@/lib/storage/categories";
+import { createGoal, updateGoal } from "@/lib/storage/goals";
 
 interface Category {
   id: string;
@@ -112,35 +114,37 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/categories").then((res) => res.json()).then(setCategories);
+    listCategories().then(setCategories);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await fetch(existingGoal ? `/api/goals/${existingGoal.id}` : "/api/goals", {
-      method: existingGoal ? "PATCH" : "POST",
-      body: JSON.stringify({
-        title,
-        icon,
-        type,
-        periodicity,
-        unit: type === "quantitative" ? unit : undefined,
-        targetValue: type === "quantitative" ? Number(targetValue) : undefined,
-        step: type === "quantitative" ? Number(step) : undefined,
-        weeklyThreshold: periodicity === "weekly" ? Number(weeklyThreshold) : undefined,
-        periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
-        periodTarget: periodicity === "count_per_period" ? Number(periodTarget) : undefined,
-        categoryId,
-        endDate: duration === "ends" ? endDate : null,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.json();
-      setError(body.error ?? "Fehler beim Speichern.");
-      return;
+    const input = {
+      title,
+      icon,
+      type,
+      periodicity,
+      unit: type === "quantitative" ? unit : undefined,
+      targetValue: type === "quantitative" ? Number(targetValue) : undefined,
+      step: type === "quantitative" ? Number(step) : undefined,
+      weeklyThreshold: periodicity === "weekly" ? Number(weeklyThreshold) : undefined,
+      periodUnit: periodicity === "count_per_period" ? periodUnit : undefined,
+      periodTarget: periodicity === "count_per_period" ? Number(periodTarget) : undefined,
+      categoryId,
+      endDate: duration === "ends" ? endDate : null,
+    };
+    try {
+      if (existingGoal) {
+        await updateGoal(existingGoal.id, input);
+        router.push(`/goals/${existingGoal.id}`);
+      } else {
+        await createGoal(input);
+        router.push("/");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
     }
-    router.push(existingGoal ? `/goals/${existingGoal.id}` : "/");
   }
 
   return (
