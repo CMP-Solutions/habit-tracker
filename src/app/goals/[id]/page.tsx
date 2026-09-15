@@ -7,31 +7,20 @@ import { Pencil, Trophy } from "lucide-react";
 import { Heatmap } from "@/components/Heatmap";
 import { TrendChart } from "@/components/TrendChart";
 import { buttonVariants } from "@/components/ui/button";
-
-interface HistoryResponse {
-  goal: { title: string; icon: string | null; endDate: string | null };
-  results: { date: string; success: boolean }[];
-  milestones: { type: string; threshold: number; achievedAt: string }[];
-  currentStreak: number;
-  longestStreak: number;
-  totalSuccessCount: number;
-}
+import { getGoalHistory, type GoalHistory } from "@/lib/storage/goals";
 
 export default function GoalDetailPage() {
   const params = useParams<{ id: string }>();
-  const [data, setData] = useState<HistoryResponse | null>(null);
+  const [data, setData] = useState<GoalHistory | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/goals/${params.id}/history`).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Ziel nicht gefunden.");
-        return;
-      }
-      setError(null);
-      setData(await res.json());
-    });
+    getGoalHistory(params.id)
+      .then((history) => {
+        setError(null);
+        setData(history);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Ziel nicht gefunden."));
   }, [params.id]);
 
   if (error) return <main className="px-6 py-10 text-destructive">{error}</main>;
