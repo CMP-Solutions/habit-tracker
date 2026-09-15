@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { getWeek, type WeekResult, type WeekGoal, type WeekEntry } from "@/lib/storage/week";
 import { recordEntry } from "@/lib/storage/entries";
@@ -17,7 +17,7 @@ function isComplete(goal: WeekGoal, entry: WeekEntry | null): boolean {
 export default function WeekPage() {
   const [data, setData] = useState<WeekResult | null>(null);
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
-  const todayColRef = useRef<HTMLTableCellElement>(null);
+  const todayColRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setData(await getWeek());
@@ -49,60 +49,64 @@ export default function WeekPage() {
         <p className="text-muted-foreground">Noch keine Ziele angelegt.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card p-4 backdrop-blur-xl">
-          {/* border-separate, not border-collapse: sticky cells inside a
-              collapsed-border table fail to reserve their own column width
-              in some browsers and visibly overlap the next column. */}
-          <table className="w-full min-w-[640px] border-separate border-spacing-0">
-            <thead>
-              <tr>
-                {/* Sticky+opaque only below md: the table's 640px min-width
-                    never needs horizontal scroll at md and up inside this
-                    max-w-4xl page, so keeping it sticky there just paints an
-                    opaque block over the glass card for no functional reason.
-                    bg-popover (not bg-card+blur) is the system's opaque-
-                    surface token — stacking another blur on the already-
-                    blurred card compounds into a visibly flat dark patch. */}
-                <th className="sticky left-0 z-10 bg-popover px-2 pb-3 text-left text-sm font-medium text-muted-foreground md:static md:bg-transparent">Ziel</th>
+          {/*
+            CSS grid, not an HTML table: `position: sticky` on a <td>/<th>
+            inside a <table> is unreliable in Safari — confirmed on real
+            iOS Safari, where the sticky header and first-column cells
+            rendered as one oversized floating box instead of staying
+            confined to their own row. A grid with the goal-name column
+            reused on every row via `sticky left-0` behaves correctly
+            across browsers, the same "frozen first column" a spreadsheet
+            gives you when scrolling right.
+          */}
+          <div className="grid min-w-[644px] grid-cols-[140px_repeat(7,72px)]">
+            {/* Sticky+opaque only below md: the grid's ~644px min-width
+                never needs horizontal scroll at md and up inside this
+                max-w-4xl page, so keeping it sticky there just paints an
+                opaque block over the glass card for no functional reason.
+                bg-popover (not bg-card+blur) is the system's opaque-
+                surface token — stacking another blur on the already-
+                blurred card compounds into a visibly flat dark patch. */}
+            <div className="sticky left-0 z-10 bg-popover px-2 pb-3 text-left text-sm font-medium text-muted-foreground md:static md:bg-transparent">
+              Ziel
+            </div>
+            {data.days.map((day) => (
+              <div
+                key={day}
+                ref={day === today ? todayColRef : undefined}
+                className={`px-2 pb-3 text-center text-xs font-normal ${
+                  day === today ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <div>{WEEKDAY_FORMAT.format(new Date(day + "T00:00:00Z"))}</div>
+                <div className="font-mono">{DAY_FORMAT.format(new Date(day + "T00:00:00Z"))}</div>
+              </div>
+            ))}
+
+            {data.goals.map((goal) => (
+              <Fragment key={goal.id}>
+                <div className="sticky left-0 z-10 flex items-center border-t border-border/60 bg-popover py-2 pr-3 md:static md:bg-transparent">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    {goal.icon && <span className="text-base leading-none">{goal.icon}</span>}
+                    {goal.title}
+                  </span>
+                </div>
                 {data.days.map((day) => (
-                  <th
-                    key={day}
-                    ref={day === today ? todayColRef : undefined}
-                    className={`px-2 pb-3 text-center text-xs font-normal ${
-                      day === today ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    <div>{WEEKDAY_FORMAT.format(new Date(day + "T00:00:00Z"))}</div>
-                    <div className="font-mono">{DAY_FORMAT.format(new Date(day + "T00:00:00Z"))}</div>
-                  </th>
+                  <div key={day} className="border-t border-border/60 p-1 text-center">
+                    <WeekCell
+                      key={`${goal.entries[day]?.done ?? ""}-${goal.entries[day]?.value ?? ""}`}
+                      goal={goal}
+                      date={day}
+                      entry={goal.entries[day]}
+                      isFuture={day > today}
+                      isToday={day === today}
+                      onSave={saveEntry}
+                    />
+                  </div>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.goals.map((goal) => (
-                <tr key={goal.id} className="border-t border-border/60">
-                  <td className="sticky left-0 z-10 bg-popover py-2 pr-3 md:static md:bg-transparent">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      {goal.icon && <span className="text-base leading-none">{goal.icon}</span>}
-                      {goal.title}
-                    </span>
-                  </td>
-                  {data.days.map((day) => (
-                    <td key={day} className="p-1 text-center">
-                      <WeekCell
-                        key={`${goal.entries[day]?.done ?? ""}-${goal.entries[day]?.value ?? ""}`}
-                        goal={goal}
-                        date={day}
-                        entry={goal.entries[day]}
-                        isFuture={day > today}
-                        isToday={day === today}
-                        onSave={saveEntry}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </Fragment>
+            ))}
+          </div>
         </div>
       )}
     </main>
