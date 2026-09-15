@@ -51,6 +51,11 @@ export default function MilestonesPage() {
                 <p className="mb-3 flex items-center gap-1.5 text-sm font-medium">
                   {u.goalIcon && <span className="text-base leading-none">{u.goalIcon}</span>}
                   {u.goalTitle}
+                  {u.type === "streak" && (
+                    <span className="font-mono text-xs font-normal text-muted-foreground">
+                      · {u.current} {u.current === 1 ? "Tag" : "Tage"} Streak
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center gap-2">
                   {tiersFor(u.type).map((tier) => {

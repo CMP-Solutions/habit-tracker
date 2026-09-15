@@ -10,13 +10,13 @@ const SIZE_CLASSES = { sm: "size-9", md: "size-11" } as const;
 const ICON_SIZE_CLASSES = { sm: "size-4", md: "size-5" } as const;
 
 /**
- * One medal in a tier ladder. `achieved` tiers stay permanently unlocked
- * (a broken streak never revokes an earlier win) so they render grayed out
- * with a checkmark rather than losing their color entirely — dimmed enough
- * to read as "done", not so faint it looks unearned. `active` is the next
- * tier still open to reach, shown in the tier's own color with a progress
- * ring. `locked` tiers further out are a bare outline: visible as "exists"
- * without implying any progress toward them yet.
+ * One medal in a tier ladder. `achieved` tiers stay permanently unlocked (a
+ * broken streak never revokes an earlier win) and render in the tier's own
+ * color with a checkmark badge — earning it is the point, so it should look
+ * like a trophy, not a grayed-out husk. `active` is the next tier still open
+ * to reach, shown in the same tier color but with a progress ring instead of
+ * the checkmark. `locked` tiers further out are a bare outline: visible as
+ * "exists" without implying any progress toward them yet.
  */
 export function MedalBadge({
   tier,
@@ -39,11 +39,9 @@ export function MedalBadge({
     <Popover>
       <PopoverTrigger
         className={`relative flex shrink-0 items-center justify-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${SIZE_CLASSES[size]} ${
-          state === "achieved"
-            ? "bg-muted text-muted-foreground ring-1 ring-border"
-            : state === "active"
-              ? `ring-2 ${tier.activeClassName}`
-              : "text-muted-foreground/40 ring-1 ring-border/60"
+          state === "achieved" || state === "active"
+            ? `ring-2 ${tier.activeClassName}`
+            : "text-muted-foreground/40 ring-1 ring-border/60"
         }`}
         aria-label={`${tier.name}${state === "locked" ? " (noch nicht erreichbar)" : ""}`}
       >
