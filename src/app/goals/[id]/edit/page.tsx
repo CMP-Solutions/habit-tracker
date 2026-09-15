@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { getGoalHistory, updateGoal, deleteGoal } from "@/lib/storage/goals";
 
 export default function EditGoalPage() {
   const params = useParams<{ id: string }>();
@@ -25,32 +26,30 @@ export default function EditGoalPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/goals/${params.id}/history`).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Ziel nicht gefunden.");
-        return;
-      }
-      const data = await res.json();
-      setGoal(data.goal);
-      setEntryCount(data.entryCount);
-    });
+    getGoalHistory(params.id)
+      .then((data) => {
+        setGoal(data.goal);
+        setEntryCount(data.entryCount);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Ziel nicht gefunden."));
   }, [params.id]);
 
   const willArchive = entryCount > 0;
 
   async function handleConfirm() {
     setDeleteError(null);
-    const res = await fetch(`/api/goals/${params.id}`, {
-      method: willArchive ? "PATCH" : "DELETE",
-      ...(willArchive ? { body: JSON.stringify({ archived: true }) } : {}),
-    });
-    if (res.ok) {
+    try {
+      if (willArchive) {
+        await updateGoal(params.id, { archived: true });
+      } else {
+        await deleteGoal(params.id);
+      }
       router.push("/");
-      return;
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : willArchive ? "Archivieren fehlgeschlagen." : "Löschen fehlgeschlagen."
+      );
     }
-    const body = await res.json().catch(() => ({}));
-    setDeleteError(body.error ?? (willArchive ? "Archivieren fehlgeschlagen." : "Löschen fehlgeschlagen."));
   }
 
   if (error) return <main className="px-6 py-10 text-destructive">{error}</main>;
