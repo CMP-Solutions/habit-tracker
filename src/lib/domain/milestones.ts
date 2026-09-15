@@ -9,7 +9,7 @@ export interface MilestoneAward {
   threshold: number;
 }
 
-export const STREAK_THRESHOLDS = [7, 30, 100];
+export const STREAK_THRESHOLDS = [3, 7, 30, 100, 365];
 export const TOTAL_COUNT_THRESHOLDS = [100];
 
 function alreadyHas(

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy } from "lucide-react";
 import { getMilestones } from "@/lib/storage/milestones";
+import { MedalBadge } from "@/components/milestones/MedalBadge";
+import { STREAK_TIERS, TOTAL_COUNT_TIER, tierFor, tiersFor } from "@/components/milestones/tiers";
 
 interface AchievedMilestone {
   id: string;
-  type: string;
+  type: "streak" | "total_count";
   threshold: number;
   achievedAt: string;
   goal: { title: string; icon: string | null };
@@ -16,18 +17,15 @@ interface UpcomingMilestone {
   goalId: string;
   goalTitle: string;
   goalIcon: string | null;
-  type: string;
+  type: "streak" | "total_count";
   threshold: number;
   current: number;
+  achievedThresholds: number[];
 }
 
 interface MilestonesResponse {
   achieved: AchievedMilestone[];
   upcoming: UpcomingMilestone[];
-}
-
-function milestoneLabel(type: string, threshold: number): string {
-  return type === "streak" ? `${threshold}-Tage-Streak` : `${threshold}x insgesamt geschafft`;
 }
 
 export default function MilestonesPage() {
@@ -43,64 +41,115 @@ export default function MilestonesPage() {
   return (
     <main className="mx-auto w-full max-w-2xl space-y-8 px-6 py-10">
       <h1 className="font-heading text-3xl">Meilensteine</h1>
+
       {upcoming.length > 0 && (
-        <section className="space-y-2">
+        <section className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">Als Nächstes</h2>
-          <ul className="space-y-2">
-            {upcoming.map((u) => {
-              const percent = Math.min(Math.round((u.current / u.threshold) * 100), 100);
-              return (
-                <li
-                  key={`${u.goalId}-${u.type}-${u.threshold}`}
-                  className="rounded-lg border bg-card p-4 backdrop-blur-xl"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-4">
-                    <p className="flex items-center gap-1.5 text-sm font-medium">
-                      {u.goalIcon && <span className="text-base leading-none">{u.goalIcon}</span>}
-                      {u.goalTitle}
-                    </p>
-                    <p className="shrink-0 font-mono text-xs text-muted-foreground">
-                      {milestoneLabel(u.type, u.threshold)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
-                    </div>
-                    <p className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                      {u.current}/{u.threshold}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
+          <ul className="space-y-3">
+            {upcoming.map((u) => (
+              <li key={`${u.goalId}-${u.type}-${u.threshold}`} className="rounded-lg border bg-card p-4 backdrop-blur-xl">
+                <p className="mb-3 flex items-center gap-1.5 text-sm font-medium">
+                  {u.goalIcon && <span className="text-base leading-none">{u.goalIcon}</span>}
+                  {u.goalTitle}
+                </p>
+                <div className="flex items-center gap-2">
+                  {tiersFor(u.type).map((tier) => {
+                    const isAchieved = u.achievedThresholds.includes(tier.threshold);
+                    const isActive = tier.threshold === u.threshold;
+                    const state = isAchieved ? "achieved" : isActive ? "active" : "locked";
+                    return (
+                      <MedalBadge
+                        key={tier.threshold}
+                        tier={tier}
+                        state={state}
+                        size="sm"
+                        progress={isActive ? u.current / u.threshold : undefined}
+                        details={
+                          <div className="space-y-1">
+                            <p className="font-medium">{tier.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {u.type === "streak" ? `${tier.threshold} Tage Streak` : tier.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {isAchieved
+                                ? "Bereits freigeschaltet"
+                                : isActive
+                                  ? `${u.current} / ${u.threshold} — für ${u.goalTitle}`
+                                  : "Noch nicht erreichbar"}
+                            </p>
+                          </div>
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
       )}
 
-      <section className="space-y-2">
-        {upcoming.length > 0 && <h2 className="text-sm font-medium text-muted-foreground">Erreicht</h2>}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          {(upcoming.length > 0 || achieved.length > 0) && (
+            <h2 className="text-sm font-medium text-muted-foreground">Gesammelte Medaillen</h2>
+          )}
+          <details className="group text-xs text-muted-foreground">
+            <summary className="cursor-pointer list-none underline decoration-dotted underline-offset-2 select-none">
+              Stufen anzeigen
+            </summary>
+            <div className="mt-3 space-y-2 rounded-lg border bg-card p-3 backdrop-blur-xl">
+              {STREAK_TIERS.map((tier) => (
+                <div key={tier.threshold} className="flex items-center gap-3">
+                  <MedalBadge tier={tier} state="locked" size="sm" details={<p>{tier.name}</p>} />
+                  <p>
+                    <span className="font-medium text-foreground">{tier.name}</span> — {tier.threshold} Tage Streak
+                  </p>
+                </div>
+              ))}
+              <div className="flex items-center gap-3">
+                <MedalBadge tier={TOTAL_COUNT_TIER} state="locked" size="sm" details={<p>{TOTAL_COUNT_TIER.name}</p>} />
+                <p>
+                  <span className="font-medium text-foreground">{TOTAL_COUNT_TIER.name}</span> — insgesamt{" "}
+                  {TOTAL_COUNT_TIER.threshold}x erfolgreich
+                </p>
+              </div>
+            </div>
+          </details>
+        </div>
+
         {achieved.length === 0 && (
           <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
             Noch keine Meilensteine erreicht.
           </div>
         )}
-        <ul className="space-y-2">
-          {achieved.map((m) => (
-            <li key={m.id} className="flex items-center gap-4 rounded-lg border bg-card p-4 backdrop-blur-xl">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-celebrate/15 text-celebrate">
-                <Trophy className="size-5" />
-              </span>
-              <div>
-                <p className="font-medium">{milestoneLabel(m.type, m.threshold)}</p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {m.goal.icon && <span className="mr-1">{m.goal.icon}</span>}
-                  {m.goal.title} · {new Date(m.achievedAt).toLocaleDateString("de-DE")}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
+
+        {achieved.length > 0 && (
+          <div className="flex flex-wrap gap-3 rounded-xl border bg-card p-4 backdrop-blur-xl">
+            {achieved.map((m) => {
+              const tier = tierFor(m.type, m.threshold);
+              return (
+                <MedalBadge
+                  key={m.id}
+                  tier={tier}
+                  state="achieved"
+                  details={
+                    <div className="space-y-1">
+                      <p className="font-medium">{tier.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.type === "streak" ? `${m.threshold} Tage Streak` : tier.name}
+                      </p>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        {m.goal.icon && <span>{m.goal.icon}</span>}
+                        {m.goal.title} · {new Date(m.achievedAt).toLocaleDateString("de-DE")}
+                      </p>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
       </section>
     </main>
   );

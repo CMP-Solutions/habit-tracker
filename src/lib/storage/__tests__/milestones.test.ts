@@ -37,6 +37,7 @@ describe("milestones storage: getMilestones", () => {
       type: "streak",
       threshold: 7,
       current: 4,
+      achievedThresholds: [3],
     });
   });
 
@@ -66,16 +67,15 @@ describe("milestones storage: getMilestones", () => {
     expect(streakProgress?.threshold).toBe(30);
   });
 
-  it("still returns the achieved list", async () => {
+  it("still returns the achieved list, including every tier reached", async () => {
     const goal = await createGoal({ title: "Sport", type: "boolean", periodicity: "daily" });
     for (const n of [6, 5, 4, 3, 2, 1, 0]) {
       await recordEntry({ goalId: goal.id, date: daysAgo(n), done: true });
     }
 
     const { achieved } = await getMilestones();
-    expect(achieved).toHaveLength(1);
-    expect(achieved[0].goal.title).toBe("Sport");
-    expect(achieved[0].type).toBe("streak");
-    expect(achieved[0].threshold).toBe(7);
+    expect(achieved).toHaveLength(2);
+    expect(achieved.every((m) => m.goal.title === "Sport" && m.type === "streak")).toBe(true);
+    expect(achieved.map((m) => m.threshold).sort((a, b) => a - b)).toEqual([3, 7]);
   });
 });

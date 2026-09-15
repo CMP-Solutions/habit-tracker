@@ -9,21 +9,25 @@ describe("determineNewMilestones", () => {
     expect(determineNewMilestones(results, [])).toEqual([]);
   });
 
-  it("awards a 7-day streak milestone once reached", () => {
+  it("awards every streak tier reached so far, not just the highest", () => {
     const results = Array.from({ length: 7 }, (_, i) =>
       day(`2026-09-0${i + 1}`, true)
     );
     expect(determineNewMilestones(results, [])).toEqual([
+      { type: "streak", threshold: 3 },
       { type: "streak", threshold: 7 },
     ]);
   });
 
-  it("does not re-award a milestone already present", () => {
+  it("does not re-award milestones already present", () => {
     const results = Array.from({ length: 7 }, (_, i) =>
       day(`2026-09-0${i + 1}`, true)
     );
     expect(
-      determineNewMilestones(results, [{ type: "streak", threshold: 7 }])
+      determineNewMilestones(results, [
+        { type: "streak", threshold: 3 },
+        { type: "streak", threshold: 7 },
+      ])
     ).toEqual([]);
   });
 
@@ -41,20 +45,23 @@ describe("determineNewMilestones", () => {
 
 describe("determineUpcomingProgress", () => {
   it("reports progress toward the first unearned threshold of each type", () => {
-    expect(determineUpcomingProgress(3, 12, [])).toEqual([
-      { type: "streak", threshold: 7, current: 3 },
+    expect(determineUpcomingProgress(2, 12, [])).toEqual([
+      { type: "streak", threshold: 3, current: 2 },
       { type: "total_count", threshold: 100, current: 12 },
     ]);
   });
 
-  it("skips to the next threshold once the first is already awarded", () => {
-    const progress = determineUpcomingProgress(10, 0, [{ type: "streak", threshold: 7 }]);
+  it("skips to the next threshold once earlier ones are already awarded", () => {
+    const progress = determineUpcomingProgress(10, 0, [
+      { type: "streak", threshold: 3 },
+      { type: "streak", threshold: 7 },
+    ]);
     expect(progress).toContainEqual({ type: "streak", threshold: 30, current: 10 });
   });
 
   it("caps current at the threshold so progress never exceeds 100%", () => {
     const progress = determineUpcomingProgress(50, 0, []);
-    expect(progress).toContainEqual({ type: "streak", threshold: 7, current: 7 });
+    expect(progress).toContainEqual({ type: "streak", threshold: 3, current: 3 });
   });
 
   it("omits a type once every threshold has been awarded", () => {

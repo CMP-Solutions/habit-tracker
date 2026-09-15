@@ -67,7 +67,7 @@ describe("entries storage: recordEntry", () => {
     expect(last.newMilestones).toEqual([{ type: "streak", threshold: 7 }]);
 
     const milestones = await db.milestones.where("goalId").equals(goal.id).toArray();
-    expect(milestones).toHaveLength(1);
+    expect(milestones).toHaveLength(2);
   });
 
   it("does not award the 7-day milestone one day early", async () => {

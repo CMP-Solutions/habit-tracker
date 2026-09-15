@@ -19,6 +19,13 @@ export interface UpcomingMilestoneView {
   type: MilestoneAward["type"];
   threshold: number;
   current: number;
+  /**
+   * Thresholds of this type already earned for this goal (ascending) — a
+   * broken-and-rebuilt streak never re-awards a tier already won, so the UI
+   * can render those as permanently unlocked while only this `threshold`
+   * (the next one) is still "in progress".
+   */
+  achievedThresholds: number[];
 }
 
 export async function getMilestones(): Promise<{
@@ -82,7 +89,17 @@ export async function getMilestones(): Promise<{
     const awarded = awardedByGoal.get(goal.id) ?? [];
 
     for (const progress of determineUpcomingProgress(currentStreak, totalCount, awarded)) {
-      upcoming.push({ goalId: goal.id, goalTitle: goal.title, goalIcon: goal.icon, ...progress });
+      const achievedThresholds = awarded
+        .filter((a) => a.type === progress.type)
+        .map((a) => a.threshold)
+        .sort((a, b) => a - b);
+      upcoming.push({
+        goalId: goal.id,
+        goalTitle: goal.title,
+        goalIcon: goal.icon,
+        achievedThresholds,
+        ...progress,
+      });
     }
   }
 
