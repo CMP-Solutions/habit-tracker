@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ProgressRing } from "@/components/ProgressRing";
 import { todayLocalDate } from "@/lib/date";
+import { recordEntry } from "@/lib/storage/entries";
 
 interface Goal {
   id: string;
@@ -71,11 +72,7 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
 
   async function checkIn(newDone: boolean, newValue?: number) {
     const today = todayLocalDate();
-    await fetch("/api/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goalId: goal.id, date: today, done: newDone, value: newValue }),
-    });
+    await recordEntry({ goalId: goal.id, date: today, done: newDone, value: newValue });
     onChecked();
   }
 
