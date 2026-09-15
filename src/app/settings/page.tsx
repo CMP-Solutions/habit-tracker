@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategoryBadge } from "@/components/CategoryBadge";
-import { getExistingPushSubscription, subscribeToPush, unsubscribeFromPush } from "@/lib/push-client";
+import { listCategories, createCategory } from "@/lib/storage/categories";
+import { isRemindersEnabled, enableReminders, disableReminders } from "@/lib/reminders";
+import { exportData, importData } from "@/lib/storage/backup";
 
 interface Category {
   id: string;
@@ -19,21 +21,20 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#3b82f6");
   const [error, setError] = useState<string | null>(null);
-  const [pushSubscribed, setPushSubscribed] = useState<boolean | null>(null);
+  const [pushSubscribed, setPushSubscribed] = useState(() => isRemindersEnabled());
   const [pushError, setPushError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getExistingPushSubscription().then((sub) => setPushSubscribed(!!sub));
-  }, []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState(false);
 
   async function togglePush() {
     setPushError(null);
     try {
       if (pushSubscribed) {
-        await unsubscribeFromPush();
+        disableReminders();
         setPushSubscribed(false);
       } else {
-        await subscribeToPush();
+        await enableReminders();
         setPushSubscribed(true);
       }
     } catch (err) {
@@ -42,33 +43,57 @@ export default function SettingsPage() {
   }
 
   function load() {
-    fetch("/api/categories").then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Kategorien konnten nicht geladen werden.");
-        return;
-      }
-      setError(null);
-      setCategories(await res.json());
-    });
+    listCategories().then(setCategories);
   }
 
   useEffect(load, []);
 
   async function addCategory(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/categories", {
-      method: "POST",
-      body: JSON.stringify({ name, color, icon: "tag" }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Kategorie konnte nicht angelegt werden.");
+    try {
+      await createCategory({ name, color, icon: "tag" });
+      setError(null);
+      setName("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kategorie konnte nicht angelegt werden.");
+    }
+  }
+
+  async function handleExport() {
+    const data = await exportData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ritual-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImportError(null);
+    setImportSuccess(false);
+    if (!window.confirm("Import ersetzt alle aktuell auf diesem Gerät gespeicherten Daten. Fortfahren?")) return;
+
+    const text = await file.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      setImportError("Die Datei ist kein gültiges JSON.");
       return;
     }
-    setError(null);
-    setName("");
-    load();
+    try {
+      await importData(parsed);
+      setImportSuccess(true);
+      load();
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import fehlgeschlagen.");
+    }
   }
 
   return (
@@ -108,12 +133,36 @@ export default function SettingsPage() {
             variant={pushSubscribed ? "outline" : "default"}
             size="sm"
             onClick={togglePush}
-            disabled={pushSubscribed === null}
           >
             {pushSubscribed ? "Deaktivieren" : "Aktivieren"}
           </Button>
         </div>
         {pushError && <p className="text-sm text-destructive">{pushError}</p>}
+      </section>
+
+      <section className="space-y-3 rounded-xl border bg-card p-6 backdrop-blur-xl">
+        <h2 className="text-sm font-medium text-muted-foreground">Daten</h2>
+        <p className="text-sm text-foreground">
+          Deine Daten liegen nur in diesem Browser. Für ein Backup oder einen Gerätewechsel: exportieren und auf
+          dem neuen Gerät wieder einlesen.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            Daten exportieren
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            Daten importieren
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+        </div>
+        {importSuccess && <p className="text-sm text-primary">Import erfolgreich.</p>}
+        {importError && <p className="text-sm text-destructive">{importError}</p>}
       </section>
     </main>
   );
