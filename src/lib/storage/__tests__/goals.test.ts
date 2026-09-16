@@ -79,6 +79,22 @@ describe("goals storage", () => {
     expect(goal.categoryId).toBe(category.id);
   });
 
+  it("persists an optional reminderTime and motivation, defaulting both to null", async () => {
+    const withExtras = await createGoal({
+      title: "Meditieren",
+      type: "boolean",
+      periodicity: "daily",
+      reminderTime: "21:00",
+      motivation: "Für den inneren Frieden.",
+    });
+    expect(withExtras.reminderTime).toBe("21:00");
+    expect(withExtras.motivation).toBe("Für den inneren Frieden.");
+
+    const withoutExtras = await createGoal({ title: "Lesen", type: "boolean", periodicity: "daily" });
+    expect(withoutExtras.reminderTime).toBeNull();
+    expect(withoutExtras.motivation).toBeNull();
+  });
+
   it("lists only non-archived goals by default", async () => {
     const active = await createGoal({ title: "Aktiv", type: "boolean", periodicity: "daily" });
     const archived = await createGoal({ title: "Archiviert", type: "boolean", periodicity: "daily" });
@@ -130,7 +146,7 @@ describe("goals storage", () => {
 
   it("refuses to delete a goal that has entries", async () => {
     const goal = await createGoal({ title: "Mit Einträgen", type: "boolean", periodicity: "daily" });
-    await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null });
+    await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null });
     await expect(deleteGoal(goal.id)).rejects.toThrow("Goal has entries; archive it instead of deleting.");
     expect(await db.goals.get(goal.id)).toBeDefined();
   });

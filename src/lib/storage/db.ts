@@ -26,6 +26,10 @@ export interface GoalRecord {
   archived: boolean;
   /** "YYYY-MM-DD" — the day the goal was created, UTC. */
   createdAt: string;
+  /** "HH:mm" 24h local time for a per-goal reminder, or null for none. */
+  reminderTime: string | null;
+  /** Optional free text: why this goal matters, shown only on its detail page. */
+  motivation: string | null;
 }
 
 export interface EntryRecord {
@@ -35,6 +39,10 @@ export interface EntryRecord {
   date: string;
   done: boolean;
   value: number | null;
+  /** True when the user explicitly paused this goal for this day. */
+  skipped: boolean;
+  /** Optional free-text reason entered when skipping; null if none given. */
+  skipReason: string | null;
 }
 
 export interface MilestoneRecord {

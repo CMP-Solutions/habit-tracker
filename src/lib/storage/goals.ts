@@ -23,6 +23,8 @@ export interface CreateGoalInput {
   periodTarget?: number;
   categoryId?: string | null;
   endDate?: string | null;
+  reminderTime?: string;
+  motivation?: string;
 }
 
 export async function createGoal(input: CreateGoalInput): Promise<GoalRecord> {
@@ -71,6 +73,8 @@ export async function createGoal(input: CreateGoalInput): Promise<GoalRecord> {
     periodTarget: input.periodicity === "count_per_period" ? (input.periodTarget as number) : null,
     archived: false,
     createdAt: utcTodayString(),
+    reminderTime: input.reminderTime ?? null,
+    motivation: input.motivation ?? null,
   };
   await db.goals.add(goal);
   return goal;
