@@ -40,6 +40,41 @@ export function shouldNotify(params: {
   return true;
 }
 
+export function goalReminderStorageKey(goalId: string): string {
+  return `ritual:goal-reminder-last:${goalId}`;
+}
+
+export function goalReminderMessage(goalTitle: string): string {
+  return `Zeit für: ${goalTitle}`;
+}
+
+/**
+ * Pure decision for a single goal's own reminder time, mirroring
+ * `shouldNotify`'s shape but keyed by a specific "HH:mm" instead of the
+ * fixed evening hour. `now` is a full Date (not just an hour) since a
+ * specific time-of-day needs minute precision, unlike the generic evening
+ * reminder.
+ */
+export function shouldNotifyForGoal(params: {
+  reminderTime: string | null;
+  isOpen: boolean;
+  enabled: boolean;
+  permissionGranted: boolean;
+  now: Date;
+  lastNotifiedKey: string | null;
+  todayKey: string;
+}): boolean {
+  if (!params.enabled || !params.permissionGranted) return false;
+  if (!params.reminderTime) return false;
+  if (!params.isOpen) return false;
+  if (params.lastNotifiedKey === params.todayKey) return false;
+
+  const [hourStr, minuteStr] = params.reminderTime.split(":");
+  const targetMinutes = Number(hourStr) * 60 + Number(minuteStr);
+  const nowMinutes = params.now.getHours() * 60 + params.now.getMinutes();
+  return nowMinutes >= targetMinutes;
+}
+
 const ENABLED_KEY = "ritual:reminders-enabled";
 const LAST_NOTIFIED_KEY = "ritual:reminders-last-notified";
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { countOpenGoals, reminderMessage, shouldNotify } from "../reminders";
+import { countOpenGoals, reminderMessage, shouldNotify, shouldNotifyForGoal, goalReminderMessage, goalReminderStorageKey } from "../reminders";
 import type { GoalWithProgress } from "../storage/goals";
 
 function goal(overrides: Partial<GoalWithProgress> = {}): GoalWithProgress {
@@ -107,5 +107,58 @@ describe("shouldNotify", () => {
 
   it("fires again on a new day even if it already fired yesterday", () => {
     expect(shouldNotify({ ...baseParams, lastNotifiedKey: "2026-09-14" })).toBe(true);
+  });
+});
+
+describe("goalReminderStorageKey", () => {
+  it("namespaces the key by goal id", () => {
+    expect(goalReminderStorageKey("g1")).toBe("ritual:goal-reminder-last:g1");
+  });
+});
+
+describe("goalReminderMessage", () => {
+  it("names the specific goal", () => {
+    expect(goalReminderMessage("Wasser trinken")).toBe("Zeit für: Wasser trinken");
+  });
+});
+
+describe("shouldNotifyForGoal", () => {
+  const baseParams = {
+    reminderTime: "21:00",
+    isOpen: true,
+    enabled: true,
+    permissionGranted: true,
+    now: new Date("2026-09-15T21:05:00"),
+    lastNotifiedKey: null as string | null,
+    todayKey: "2026-09-15",
+  };
+
+  it("fires once the reminder time has passed, goal still open, not yet notified today", () => {
+    expect(shouldNotifyForGoal(baseParams)).toBe(true);
+  });
+
+  it("does not fire before the reminder time", () => {
+    expect(shouldNotifyForGoal({ ...baseParams, now: new Date("2026-09-15T20:59:00") })).toBe(false);
+  });
+
+  it("does not fire when the goal has no reminderTime set", () => {
+    expect(shouldNotifyForGoal({ ...baseParams, reminderTime: null })).toBe(false);
+  });
+
+  it("does not fire when the goal is already done today", () => {
+    expect(shouldNotifyForGoal({ ...baseParams, isOpen: false })).toBe(false);
+  });
+
+  it("does not fire twice on the same day", () => {
+    expect(shouldNotifyForGoal({ ...baseParams, lastNotifiedKey: "2026-09-15" })).toBe(false);
+  });
+
+  it("fires again on a new day", () => {
+    expect(shouldNotifyForGoal({ ...baseParams, lastNotifiedKey: "2026-09-14" })).toBe(true);
+  });
+
+  it("does not fire when reminders are disabled or permission is missing", () => {
+    expect(shouldNotifyForGoal({ ...baseParams, enabled: false })).toBe(false);
+    expect(shouldNotifyForGoal({ ...baseParams, permissionGranted: false })).toBe(false);
   });
 });
