@@ -8,7 +8,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { GOAL_TEMPLATES } from "@/lib/domain/goalTemplates";
 import { listGoalsWithProgress, createGoal, type GoalWithProgress } from "@/lib/storage/goals";
-import { countOpenGoals, maybeShowReminder } from "@/lib/reminders";
+import {
+  countOpenGoals,
+  maybeShowReminder,
+  isRemindersEnabled,
+  shouldNotifyForGoal,
+  goalReminderMessage,
+  goalReminderStorageKey,
+} from "@/lib/reminders";
 import { useUserName } from "@/components/OnboardingGate";
 import { possessive } from "@/lib/user";
 
@@ -20,6 +27,36 @@ function completionRatio(goal: GoalWithProgress): number {
   const target = goal.targetValue ?? 0;
   if (target <= 0) return 0;
   return Math.min((goal.todayEntry?.value ?? 0) / target, 1);
+}
+
+function checkGoalReminders(goals: GoalWithProgress[]) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  for (const goal of goals) {
+    if (!goal.reminderTime) continue;
+    // A goal already skipped today was a deliberate decision not to do it —
+    // nagging about it anyway would undercut the point of being able to skip.
+    const isOpen = goal.todayEntry?.skipped
+      ? false
+      : goal.type === "boolean"
+        ? !(goal.todayEntry?.done ?? false)
+        : (goal.todayEntry?.value ?? 0) < (goal.targetValue ?? Infinity);
+    const key = goalReminderStorageKey(goal.id);
+    const fire = shouldNotifyForGoal({
+      reminderTime: goal.reminderTime,
+      isOpen,
+      enabled: isRemindersEnabled(),
+      permissionGranted: true,
+      now,
+      lastNotifiedKey: localStorage.getItem(key),
+      todayKey,
+    });
+    if (!fire) continue;
+    new Notification("Ritual", { body: goalReminderMessage(goal.title) });
+    localStorage.setItem(key, todayKey);
+  }
 }
 
 export default function DashboardPage() {
@@ -38,6 +75,13 @@ export default function DashboardPage() {
       setGoals(data);
       maybeShowReminder(countOpenGoals(data));
     });
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      listGoalsWithProgress().then(checkGoalReminders);
+    }, 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   async function addTemplate(template: (typeof GOAL_TEMPLATES)[number]) {

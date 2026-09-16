@@ -45,6 +45,12 @@ export default function GoalDetailPage() {
         </Link>
       </div>
 
+      {data.goal.motivation && (
+        <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground italic">
+          „{data.goal.motivation}”
+        </p>
+      )}
+
       <div className="flex gap-8 rounded-xl border bg-card p-4 backdrop-blur-xl">
         <div>
           <p className="font-mono text-2xl tabular-nums text-primary">{data.currentStreak}</p>
