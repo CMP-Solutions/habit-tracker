@@ -1,5 +1,6 @@
 import { db, type TodoRecord } from "./db";
 import { generateId } from "./id";
+import { utcToday } from "@/lib/domain/window";
 
 function todayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -52,4 +53,28 @@ export async function updateTodo(
 
 export async function deleteTodo(id: string): Promise<void> {
   await db.todos.delete(id);
+}
+
+function compareTodos(a: TodoRecord, b: TodoRecord): number {
+  if (a.dueDate === b.dueDate) return 0;
+  if (a.dueDate === null) return 1;
+  if (b.dueDate === null) return -1;
+  return a.dueDate < b.dueDate ? -1 : 1;
+}
+
+export async function listTodos(options?: { done?: boolean }): Promise<TodoRecord[]> {
+  const all = await db.todos.toArray();
+  const filtered = options?.done === undefined ? all : all.filter((t) => t.done === options.done);
+  return filtered.sort(compareTodos);
+}
+
+/**
+ * What's "due now" on the dashboard — overdue, due today, or with no due
+ * date at all (which would otherwise never surface anywhere but the full
+ * `/todos` list). Never a future-dated open todo.
+ */
+export async function getDashboardTodos(): Promise<TodoRecord[]> {
+  const todayStr = utcToday().toISOString().slice(0, 10);
+  const open = await listTodos({ done: false });
+  return open.filter((t) => t.dueDate === null || t.dueDate <= todayStr);
 }

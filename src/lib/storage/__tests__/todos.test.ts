@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
-import { createTodo, getTodo, updateTodo, deleteTodo } from "../todos";
+import { createTodo, getTodo, updateTodo, deleteTodo, listTodos, getDashboardTodos } from "../todos";
 
 describe("todos storage: CRUD", () => {
   beforeEach(async () => {
@@ -80,5 +80,94 @@ describe("todos storage: CRUD", () => {
 
   it("does not throw deleting a nonexistent todo", async () => {
     await expect(deleteTodo("does-not-exist")).resolves.toBeUndefined();
+  });
+});
+
+describe("listTodos", () => {
+  beforeEach(async () => {
+    await db.todos.clear();
+  });
+
+  it("sorts by due date ascending, with no-date todos last", async () => {
+    await createTodo({ title: "C - kein Datum" });
+    await createTodo({ title: "A - früh", dueDate: "2026-10-01" });
+    await createTodo({ title: "B - spät", dueDate: "2026-10-15" });
+
+    const todos = await listTodos();
+    expect(todos.map((t) => t.title)).toEqual(["A - früh", "B - spät", "C - kein Datum"]);
+  });
+
+  it("filters to only open todos when done is false", async () => {
+    const a = await createTodo({ title: "Offen" });
+    const b = await createTodo({ title: "Erledigt" });
+    await updateTodo(b.id, { done: true });
+
+    const open = await listTodos({ done: false });
+    expect(open.map((t) => t.id)).toEqual([a.id]);
+  });
+
+  it("filters to only done todos when done is true", async () => {
+    const a = await createTodo({ title: "Offen" });
+    const b = await createTodo({ title: "Erledigt" });
+    await updateTodo(b.id, { done: true });
+
+    const done = await listTodos({ done: true });
+    expect(done.map((t) => t.id)).toEqual([b.id]);
+  });
+
+  it("returns every todo, done or not, when no filter is given", async () => {
+    const a = await createTodo({ title: "Offen" });
+    const b = await createTodo({ title: "Erledigt" });
+    await updateTodo(b.id, { done: true });
+
+    const all = await listTodos();
+    expect(all).toHaveLength(2);
+  });
+});
+
+describe("getDashboardTodos", () => {
+  const utcToday = () => {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  };
+  const daysAgo = (n: number) => {
+    const d = utcToday();
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  beforeEach(async () => {
+    await db.todos.clear();
+  });
+
+  it("includes an overdue todo", async () => {
+    await createTodo({ title: "Überfällig", dueDate: daysAgo(2) });
+    const dashboard = await getDashboardTodos();
+    expect(dashboard.map((t) => t.title)).toContain("Überfällig");
+  });
+
+  it("includes a todo due today", async () => {
+    await createTodo({ title: "Heute", dueDate: daysAgo(0) });
+    const dashboard = await getDashboardTodos();
+    expect(dashboard.map((t) => t.title)).toContain("Heute");
+  });
+
+  it("includes a todo with no due date", async () => {
+    await createTodo({ title: "Ohne Datum" });
+    const dashboard = await getDashboardTodos();
+    expect(dashboard.map((t) => t.title)).toContain("Ohne Datum");
+  });
+
+  it("excludes a todo due in the future", async () => {
+    await createTodo({ title: "Zukunft", dueDate: daysAgo(-3) });
+    const dashboard = await getDashboardTodos();
+    expect(dashboard.map((t) => t.title)).not.toContain("Zukunft");
+  });
+
+  it("excludes an already-done todo even if overdue", async () => {
+    const todo = await createTodo({ title: "Erledigt trotz überfällig", dueDate: daysAgo(2) });
+    await updateTodo(todo.id, { done: true });
+    const dashboard = await getDashboardTodos();
+    expect(dashboard.map((t) => t.title)).not.toContain("Erledigt trotz überfällig");
   });
 });
