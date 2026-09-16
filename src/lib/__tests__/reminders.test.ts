@@ -53,6 +53,11 @@ describe("countOpenGoals", () => {
     expect(countOpenGoals([g])).toBe(0);
   });
 
+  it("counts a skipped goal as not open, even though done is false", () => {
+    const g = goal({ todayEntry: { done: false, value: null, skipped: true, skipReason: null } });
+    expect(countOpenGoals([g])).toBe(0);
+  });
+
   it("sums across multiple goals", () => {
     const done = goal({ id: "g1", todayEntry: { done: true, value: null, skipped: false, skipReason: null } });
     const open1 = goal({ id: "g2" });

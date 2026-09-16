@@ -7,6 +7,9 @@ const REMINDER_HOUR = 18;
 export function countOpenGoals(goals: GoalWithProgress[]): number {
   return goals.filter((goal) => {
     if (!goal.todayEntry) return true;
+    // A goal already skipped today was a deliberate decision not to do it —
+    // nagging about it anyway would undercut the point of being able to skip.
+    if (goal.todayEntry.skipped) return false;
     return goal.type === "boolean"
       ? !goal.todayEntry.done
       : (goal.todayEntry.value ?? 0) < (goal.targetValue ?? Infinity);
