@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ProgressRing } from "@/components/ProgressRing";
 import { todayLocalDate } from "@/lib/date";
-import { recordEntry } from "@/lib/storage/entries";
+import { recordEntry, recordSkip, deleteEntry } from "@/lib/storage/entries";
+import { SkipGoalDialog } from "@/components/SkipGoalDialog";
 
 interface Goal {
   id: string;
@@ -20,7 +21,7 @@ interface Goal {
   targetValue: number | null;
   step: number;
   category: { name: string; color: string } | null;
-  todayEntry?: { done: boolean; value: number | null } | null;
+  todayEntry?: { done: boolean; value: number | null; skipped: boolean; skipReason: string | null } | null;
   periodProgress?: { current: number; target: number } | null;
   currentStreak: number;
 }
@@ -48,6 +49,8 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
   const [value, setValue] = useState(
     goal.todayEntry?.value != null ? String(goal.todayEntry.value) : ""
   );
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const isSkipped = goal.todayEntry?.skipped ?? false;
   const checkboxWrapRef = useRef<HTMLDivElement>(null);
   const inputWrapRef = useRef<HTMLDivElement>(null);
   const doneRef = useRef(done);
@@ -73,6 +76,18 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
   async function checkIn(newDone: boolean, newValue?: number) {
     const today = todayLocalDate();
     await recordEntry({ goalId: goal.id, date: today, done: newDone, value: newValue });
+    onChecked();
+  }
+
+  async function handleSkip(reason?: string) {
+    await recordSkip({ goalId: goal.id, date: todayLocalDate(), reason });
+    onChecked();
+  }
+
+  async function handleUndoSkip() {
+    await deleteEntry({ goalId: goal.id, date: todayLocalDate() });
+    setDone(false);
+    setValue("");
     onChecked();
   }
 
@@ -129,8 +144,34 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
             {goal.periodProgress.current} von {goal.periodProgress.target} diese Periode
           </p>
         )}
+        {!isSkipped && !done && (
+          <button
+            type="button"
+            onClick={() => setSkipDialogOpen(true)}
+            className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+          >
+            Heute überspringen
+          </button>
+        )}
       </div>
-      {goal.type === "boolean" ? (
+
+      {isSkipped ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className="flex size-10 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"
+            title={goal.todayEntry?.skipReason ?? undefined}
+          >
+            <Check className="size-4" />
+          </span>
+          <button
+            type="button"
+            onClick={handleUndoSkip}
+            className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+          >
+            Rückgängig
+          </button>
+        </div>
+      ) : goal.type === "boolean" ? (
         <div ref={checkboxWrapRef}>
           <Checkbox
             className="size-6 rounded-full [&_svg]:size-4 data-checked:[animation:goal-complete-pop_320ms_ease-out] data-checked:bg-celebrate data-checked:border-celebrate data-checked:text-celebrate-foreground data-checked:shadow-[0_0_10px_-1px_var(--color-celebrate)]"
@@ -171,6 +212,13 @@ export function GoalCard({ goal, onChecked }: { goal: Goal; onChecked: () => voi
           </span>
         </div>
       )}
+
+      <SkipGoalDialog
+        open={skipDialogOpen}
+        onOpenChange={setSkipDialogOpen}
+        goalTitle={goal.title}
+        onConfirm={handleSkip}
+      />
     </div>
   );
 }
