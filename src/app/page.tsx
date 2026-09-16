@@ -4,10 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { GoalCard } from "@/components/GoalCard";
+import { TodoRow } from "@/components/TodoRow";
 import { buttonVariants } from "@/components/ui/button";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { GOAL_TEMPLATES } from "@/lib/domain/goalTemplates";
 import { listGoalsWithProgress, createGoal, type GoalWithProgress } from "@/lib/storage/goals";
+import { getDashboardTodos, updateTodo } from "@/lib/storage/todos";
+import type { TodoRecord } from "@/lib/storage/db";
+import { utcToday } from "@/lib/domain/window";
 import {
   countOpenGoals,
   maybeShowReminder,
@@ -61,7 +65,9 @@ function checkGoalReminders(goals: GoalWithProgress[]) {
 
 export default function DashboardPage() {
   const [goals, setGoals] = useState<GoalWithProgress[]>([]);
+  const [todos, setTodos] = useState<TodoRecord[]>([]);
   const today = new Date();
+  const todayStr = utcToday().toISOString().slice(0, 10);
   const userName = useUserName();
 
   const load = useCallback(async () => {
@@ -70,12 +76,17 @@ export default function DashboardPage() {
     maybeShowReminder(countOpenGoals(data));
   }, []);
 
+  const loadTodos = useCallback(() => {
+    getDashboardTodos().then(setTodos);
+  }, []);
+
   useEffect(() => {
     listGoalsWithProgress().then((data) => {
       setGoals(data);
       maybeShowReminder(countOpenGoals(data));
     });
-  }, []);
+    loadTodos();
+  }, [loadTodos]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -89,6 +100,11 @@ export default function DashboardPage() {
     load();
   }
 
+  async function handleToggleTodoDone(id: string, done: boolean) {
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+    await updateTodo(id, { done });
+  }
+
   // A goal skipped for today was deliberately paused, not left incomplete —
   // it's excluded from the ratio entirely rather than counted as 0%.
   const activeGoals = goals.filter((g) => !g.todayEntry?.skipped);
@@ -98,7 +114,7 @@ export default function DashboardPage() {
       : 0;
 
   return (
-    <main className="mx-auto w-full max-w-xl px-6 py-10">
+    <main className="mx-auto w-full max-w-4xl px-6 py-10">
       <header className="mb-10 flex items-end justify-between gap-6">
         <div>
           <p className="font-mono text-xs tracking-wide text-muted-foreground">
@@ -116,46 +132,80 @@ export default function DashboardPage() {
         )}
       </header>
 
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          {userName ? `${possessive(userName)} Ziele` : "Ziele"}
-        </h2>
-        <Link href="/goals/new" className={buttonVariants({ size: "sm" })}>
-          <Plus /> Neues Ziel
-        </Link>
-      </div>
-
-      {goals.length === 0 ? (
-        <div className="space-y-4 rounded-xl border border-dashed p-6">
-          <p className="text-center text-muted-foreground">
-            Noch keine Ziele angelegt. Leg direkt los mit einer Vorlage:
-          </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {GOAL_TEMPLATES.map((template) => (
-              <button
-                key={template.title}
-                type="button"
-                onClick={() => addTemplate(template)}
-                className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/30 p-4 text-center transition-colors hover:bg-muted"
-              >
-                <span className="text-2xl leading-none">{template.icon}</span>
-                <span className="text-sm">{template.title}</span>
-              </button>
-            ))}
-          </div>
-          <div className="text-center">
-            <Link href="/goals/new" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              Oder eigenes Ziel anlegen
+      <div className="grid gap-8 sm:grid-cols-2">
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              {userName ? `${possessive(userName)} Ziele` : "Ziele"}
+            </h2>
+            <Link href="/goals/new" className={buttonVariants({ size: "sm" })}>
+              <Plus /> Neues Ziel
             </Link>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {goals.map((goal) => (
-            <GoalCard key={goal.id} goal={goal} onChecked={load} />
-          ))}
-        </div>
-      )}
+
+          {goals.length === 0 ? (
+            <div className="space-y-4 rounded-xl border border-dashed p-6">
+              <p className="text-center text-muted-foreground">
+                Noch keine Ziele angelegt. Leg direkt los mit einer Vorlage:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {GOAL_TEMPLATES.map((template) => (
+                  <button
+                    key={template.title}
+                    type="button"
+                    onClick={() => addTemplate(template)}
+                    className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/30 p-4 text-center transition-colors hover:bg-muted"
+                  >
+                    <span className="text-2xl leading-none">{template.icon}</span>
+                    <span className="text-sm">{template.title}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="text-center">
+                <Link href="/goals/new" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  Oder eigenes Ziel anlegen
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {goals.map((goal) => (
+                <GoalCard key={goal.id} goal={goal} onChecked={load} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground">ToDos</h2>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/todos/new"
+                className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+              >
+                Neues ToDo
+              </Link>
+              <Link
+                href="/todos"
+                className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+              >
+                Alle anzeigen
+              </Link>
+            </div>
+          </div>
+
+          {todos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nichts Dringendes offen.</p>
+          ) : (
+            <div className="space-y-2">
+              {todos.map((todo) => (
+                <TodoRow key={todo.id} todo={todo} todayStr={todayStr} onToggleDone={handleToggleTodoDone} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
