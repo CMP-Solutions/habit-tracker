@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createGoal } from "../goals";
-import { recordEntry } from "../entries";
+import { recordEntry, recordSkip, deleteEntry } from "../entries";
 
 describe("entries storage: recordEntry", () => {
   beforeEach(async () => {
@@ -97,5 +97,87 @@ describe("entries storage: recordEntry", () => {
       last = await recordEntry({ goalId: goal.id, date, done: true });
     }
     expect(last.newMilestones).toEqual([{ type: "streak", threshold: 7 }]);
+  });
+});
+
+describe("recordSkip", () => {
+  beforeEach(async () => {
+    await db.goals.clear();
+    await db.entries.clear();
+    await db.milestones.clear();
+  });
+
+  it("marks the day skipped without setting done or value", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    const { entry } = await recordSkip({ goalId: goal.id, date: "2026-09-10", reason: "Krank" });
+    expect(entry.skipped).toBe(true);
+    expect(entry.skipReason).toBe("Krank");
+    expect(entry.done).toBe(false);
+    expect(entry.value).toBeNull();
+  });
+
+  it("defaults skipReason to null when no reason is given", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    const { entry } = await recordSkip({ goalId: goal.id, date: "2026-09-10" });
+    expect(entry.skipReason).toBeNull();
+  });
+
+  it("does not create a milestone even if it would otherwise complete a streak", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    for (const date of ["2026-09-04", "2026-09-05", "2026-09-06"]) {
+      await recordEntry({ goalId: goal.id, date, done: true });
+    }
+    await recordSkip({ goalId: goal.id, date: "2026-09-07" });
+    const milestones = await db.milestones.where("goalId").equals(goal.id).toArray();
+    // The 3 entries create a 3-day milestone, but recordSkip itself doesn't create any milestone
+    expect(milestones).toHaveLength(1);
+  });
+
+  it("overwrites a previously recorded entry for the same day", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    await recordEntry({ goalId: goal.id, date: "2026-09-10", done: true });
+    await recordSkip({ goalId: goal.id, date: "2026-09-10", reason: "Doch nicht" });
+    const stored = await db.entries.where("[goalId+date]").equals([goal.id, "2026-09-10"]).first();
+    expect(stored?.skipped).toBe(true);
+    expect(stored?.done).toBe(false);
+  });
+});
+
+describe("recordEntry clearing a previous skip", () => {
+  beforeEach(async () => {
+    await db.goals.clear();
+    await db.entries.clear();
+    await db.milestones.clear();
+  });
+
+  it("resets skipped/skipReason when a real entry is recorded over a skipped day", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    await recordSkip({ goalId: goal.id, date: "2026-09-10", reason: "Krank" });
+    await recordEntry({ goalId: goal.id, date: "2026-09-10", done: true });
+    const stored = await db.entries.where("[goalId+date]").equals([goal.id, "2026-09-10"]).first();
+    expect(stored?.skipped).toBe(false);
+    expect(stored?.skipReason).toBeNull();
+    expect(stored?.done).toBe(true);
+  });
+});
+
+describe("deleteEntry", () => {
+  beforeEach(async () => {
+    await db.goals.clear();
+    await db.entries.clear();
+    await db.milestones.clear();
+  });
+
+  it("removes an existing entry for the given goal and date", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    await recordSkip({ goalId: goal.id, date: "2026-09-10", reason: "Krank" });
+    await deleteEntry({ goalId: goal.id, date: "2026-09-10" });
+    const stored = await db.entries.where("[goalId+date]").equals([goal.id, "2026-09-10"]).first();
+    expect(stored).toBeUndefined();
+  });
+
+  it("is a no-op when there is nothing to delete", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    await expect(deleteEntry({ goalId: goal.id, date: "2026-09-10" })).resolves.toBeUndefined();
   });
 });
