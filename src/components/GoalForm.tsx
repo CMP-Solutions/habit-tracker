@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { GOAL_ICONS, isGoalIcon, type GoalIcon } from "@/lib/domain/goalIcons";
 import { listCategories } from "@/lib/storage/categories";
 import { createGoal, updateGoal } from "@/lib/storage/goals";
@@ -42,6 +43,8 @@ export interface ExistingGoal {
   categoryId: string | null;
   endDate: string | null;
   step: number;
+  reminderTime: string | null;
+  motivation: string | null;
 }
 
 function ToggleGroup<T extends string>({
@@ -111,6 +114,8 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
   const [categoryId, setCategoryId] = useState<string | undefined>(existingGoal?.categoryId ?? undefined);
   const [duration, setDuration] = useState<"ongoing" | "ends">(existingGoal?.endDate ? "ends" : "ongoing");
   const [endDate, setEndDate] = useState(existingGoal?.endDate?.slice(0, 10) ?? "");
+  const [reminderTime, setReminderTime] = useState(existingGoal?.reminderTime ?? "");
+  const [motivation, setMotivation] = useState(existingGoal?.motivation ?? "");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -133,6 +138,8 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
       periodTarget: periodicity === "count_per_period" ? Number(periodTarget) : undefined,
       categoryId,
       endDate: duration === "ends" ? endDate : null,
+      reminderTime: reminderTime ? reminderTime : undefined,
+      motivation: motivation.trim() ? motivation.trim() : undefined,
     };
     try {
       if (existingGoal) {
@@ -272,6 +279,27 @@ export function GoalForm({ existingGoal }: { existingGoal?: ExistingGoal }) {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="reminderTime">Erinnerung um (optional)</Label>
+        <Input
+          id="reminderTime"
+          type="time"
+          className="font-mono"
+          value={reminderTime}
+          onChange={(e) => setReminderTime(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="motivation">Warum ist dir das wichtig? (optional)</Label>
+        <Textarea
+          id="motivation"
+          value={motivation}
+          onChange={(e) => setMotivation(e.target.value)}
+          placeholder="Nur du siehst das, auf der Detailseite dieses Ziels."
+        />
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
