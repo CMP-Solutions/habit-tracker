@@ -89,9 +89,12 @@ export default function DashboardPage() {
     load();
   }
 
+  // A goal skipped for today was deliberately paused, not left incomplete —
+  // it's excluded from the ratio entirely rather than counted as 0%.
+  const activeGoals = goals.filter((g) => !g.todayEntry?.skipped);
   const percentDone =
-    goals.length > 0
-      ? Math.round((goals.reduce((sum, g) => sum + completionRatio(g), 0) / goals.length) * 100)
+    activeGoals.length > 0
+      ? Math.round((activeGoals.reduce((sum, g) => sum + completionRatio(g), 0) / activeGoals.length) * 100)
       : 0;
 
   return (

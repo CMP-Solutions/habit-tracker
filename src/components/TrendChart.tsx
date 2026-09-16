@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 interface DayResult {
   date: string;
   success: boolean;
+  skipped?: boolean;
 }
 
 interface DayPercent {
@@ -15,7 +16,10 @@ interface DayPercent {
 function rollingSuccessRate(results: DayResult[], windowSize = 7) {
   return results.map((_, i) => {
     const window = results.slice(Math.max(0, i - windowSize + 1), i + 1);
-    const rate = window.filter((r) => r.success).length / window.length;
+    // A paused day is neither a success nor a failure — left out of the
+    // window's denominator entirely, so it doesn't drag the rate down.
+    const activeWindow = window.filter((r) => !r.skipped);
+    const rate = activeWindow.length > 0 ? activeWindow.filter((r) => r.success).length / activeWindow.length : 0;
     return { date: results[i].date, rate: Math.round(rate * 100) };
   });
 }

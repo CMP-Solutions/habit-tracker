@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createGoal } from "../goals";
-import { recordEntry } from "../entries";
+import { recordEntry, recordSkip } from "../entries";
 import { getStats } from "../stats";
 
 const utcToday = () => {
@@ -72,5 +72,14 @@ describe("stats storage: getStats", () => {
     const { daily } = await getStats(30);
     const today = daily.find((d) => d.date === daysAgo(0));
     expect(today?.successCount).toBe(1);
+  });
+
+  it("excludes a skipped day from both successCount and totalCount", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    await recordSkip({ goalId: goal.id, date: daysAgo(0), reason: "Krank" });
+
+    const { daily } = await getStats(30);
+    const today = daily.find((d) => d.date === daysAgo(0));
+    expect(today).toEqual({ date: daysAgo(0), successCount: 0, totalCount: 0 });
   });
 });

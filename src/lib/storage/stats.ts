@@ -46,6 +46,10 @@ export async function getStats(
       // backfilled entry for that day (e.g. logged via the Woche grid) proves
       // it should, since backfilled history is never rejected.
       if (goal.createdAt > dateStr && !entry) continue;
+      // A skipped day is a deliberate pause, not a success or a failure — it
+      // must not count in either direction, so it's left out of the
+      // denominator entirely rather than counted as a miss.
+      if (entry?.skipped) continue;
       totalCount++;
       const success = entry
         ? goal.type === "boolean"

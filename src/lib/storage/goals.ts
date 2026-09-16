@@ -230,7 +230,7 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
 
 export interface GoalHistory {
   goal: GoalRecord;
-  results: { date: string; success: boolean }[];
+  results: { date: string; success: boolean; skipped?: boolean }[];
   milestones: { id: string; type: "streak" | "total_count"; threshold: number; achievedAt: string }[];
   entryCount: number;
   currentStreak: number;

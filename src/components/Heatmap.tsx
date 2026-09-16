@@ -5,6 +5,7 @@ import { HISTORY_WINDOW_DAYS } from "@/lib/domain/window";
 interface DayResult {
   date: string;
   success: boolean;
+  skipped?: boolean;
 }
 
 export function Heatmap({ results }: { results: DayResult[] }) {
@@ -18,8 +19,8 @@ export function Heatmap({ results }: { results: DayResult[] }) {
     if (el) el.scrollLeft = el.scrollWidth;
   }, [results]);
 
-  const byDate = new Map(results.map((r) => [r.date, r.success]));
-  const days: { date: string; success: boolean | null }[] = [];
+  const byDate = new Map(results.map((r) => [r.date, { success: r.success, skipped: r.skipped ?? false }]));
+  const days: { date: string; success: boolean | null; skipped: boolean }[] = [];
   const cursor = new Date();
   cursor.setDate(cursor.getDate() - HISTORY_WINDOW_DAYS);
   // HISTORY_WINDOW_DAYS days back through today, inclusive — the same window
@@ -28,7 +29,8 @@ export function Heatmap({ results }: { results: DayResult[] }) {
     // Local date parts, not toISOString(): entries are keyed by the user's
     // local calendar day (see formatLocalDate).
     const key = formatLocalDate(cursor);
-    days.push({ date: key, success: byDate.has(key) ? (byDate.get(key) as boolean) : null });
+    const day = byDate.get(key);
+    days.push({ date: key, success: day ? day.success : null, skipped: day?.skipped ?? false });
     cursor.setDate(cursor.getDate() + 1);
   }
 
@@ -36,9 +38,14 @@ export function Heatmap({ results }: { results: DayResult[] }) {
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
   // Uses the app's own accent hue rather than a traffic-light red/green: a
-  // day is either on-brand (done) or a quiet gap (missed), not an alarm.
-  const colorFor = (success: boolean | null) =>
-    success === null ? "bg-muted" : success ? "bg-primary" : "bg-destructive/20";
+  // day is either on-brand (done) or a quiet gap (missed), not an alarm. A
+  // deliberately paused day gets its own neutral tone — distinct from both
+  // "no data yet" (bg-muted) and "missed" (bg-destructive/20), since a skip
+  // is neither an absence of tracking nor a failure.
+  const colorFor = (success: boolean | null, skipped: boolean) => {
+    if (skipped) return "bg-muted-foreground/20";
+    return success === null ? "bg-muted" : success ? "bg-primary" : "bg-destructive/20";
+  };
 
   return (
     <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-2">
@@ -48,7 +55,7 @@ export function Heatmap({ results }: { results: DayResult[] }) {
             <div
               key={day.date}
               title={day.date}
-              className={`h-3 w-3 rounded-[3px] transition-colors ${colorFor(day.success)}`}
+              className={`h-3 w-3 rounded-[3px] transition-colors ${colorFor(day.success, day.skipped)}`}
             />
           ))}
         </div>
