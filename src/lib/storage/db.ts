@@ -54,11 +54,25 @@ export interface MilestoneRecord {
   achievedAt: string;
 }
 
+export interface TodoRecord {
+  id: string;
+  title: string;
+  /** "YYYY-MM-DD" or null for no due date. */
+  dueDate: string | null;
+  /** "HH:mm", only meaningful when dueDate is set. */
+  dueTime: string | null;
+  priority: "low" | "normal" | "high" | null;
+  done: boolean;
+  /** "YYYY-MM-DD" — the day the todo was created, UTC. */
+  createdAt: string;
+}
+
 type RitualDb = Dexie & {
   categories: EntityTable<CategoryRecord, "id">;
   goals: EntityTable<GoalRecord, "id">;
   entries: EntityTable<EntryRecord, "id">;
   milestones: EntityTable<MilestoneRecord, "id">;
+  todos: EntityTable<TodoRecord, "id">;
 };
 
 export const db = new Dexie("ritual") as RitualDb;
@@ -68,4 +82,12 @@ db.version(1).stores({
   goals: "id, archived, categoryId, createdAt",
   entries: "id, goalId, date, [goalId+date]",
   milestones: "id, goalId, [goalId+type+threshold]",
+});
+
+db.version(2).stores({
+  categories: "id, name",
+  goals: "id, archived, categoryId, createdAt",
+  entries: "id, goalId, date, [goalId+date]",
+  milestones: "id, goalId, [goalId+type+threshold]",
+  todos: "id, done, dueDate",
 });

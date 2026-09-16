@@ -12,7 +12,7 @@ describe("db", () => {
 
   it("opens with the expected tables", async () => {
     await db.open();
-    expect(db.tables.map((t) => t.name).sort()).toEqual(["categories", "entries", "goals", "milestones"]);
+    expect(db.tables.map((t) => t.name).sort()).toEqual(["categories", "entries", "goals", "milestones", "todos"]);
   });
 
   it("stores and retrieves a category record", async () => {
