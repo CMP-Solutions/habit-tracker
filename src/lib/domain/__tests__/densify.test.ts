@@ -8,9 +8,9 @@ describe("densifyDailyResults", () => {
   it("returns one element per calendar day, inclusive of both bounds", () => {
     const results = densifyDailyResults([], utc("2026-09-01"), utc("2026-09-03"));
     expect(results).toEqual([
-      { date: "2026-09-01", success: false },
-      { date: "2026-09-02", success: false },
-      { date: "2026-09-03", success: false },
+      { date: "2026-09-01", success: false, skipped: false },
+      { date: "2026-09-02", success: false, skipped: false },
+      { date: "2026-09-03", success: false, skipped: false },
     ]);
   });
 
@@ -32,7 +32,7 @@ describe("densifyDailyResults", () => {
       utc("2026-09-10"),
       utc("2026-09-10")
     );
-    expect(results).toEqual([{ date: "2026-09-10", success: true }]);
+    expect(results).toEqual([{ date: "2026-09-10", success: true, skipped: false }]);
   });
 
   it("ignores entries outside the requested range", () => {
@@ -45,8 +45,8 @@ describe("densifyDailyResults", () => {
       utc("2026-09-02")
     );
     expect(results).toEqual([
-      { date: "2026-09-01", success: false },
-      { date: "2026-09-02", success: true },
+      { date: "2026-09-01", success: false, skipped: false },
+      { date: "2026-09-02", success: true, skipped: false },
     ]);
   });
 
@@ -75,5 +75,31 @@ describe("densifyDailyResults", () => {
   it("crosses a month boundary correctly", () => {
     const results = densifyDailyResults([], utc("2026-09-29"), utc("2026-10-02"));
     expect(results.map((r) => r.date)).toEqual(["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"]);
+  });
+
+  it("carries a skipped day through as skipped, not as a failure", () => {
+    const results = densifyDailyResults(
+      [{ date: utc("2026-09-02"), success: false, skipped: true }],
+      utc("2026-09-01"),
+      utc("2026-09-03")
+    );
+    expect(results).toEqual([
+      { date: "2026-09-01", success: false, skipped: false },
+      { date: "2026-09-02", success: false, skipped: true },
+      { date: "2026-09-03", success: false, skipped: false },
+    ]);
+  });
+
+  it("a skipped day bridges a streak across the gap", () => {
+    const dense = densifyDailyResults(
+      [
+        { date: utc("2026-09-01"), success: true },
+        { date: utc("2026-09-02"), success: false, skipped: true },
+        { date: utc("2026-09-03"), success: true },
+      ],
+      utc("2026-09-01"),
+      utc("2026-09-03")
+    );
+    expect(calculateCurrentStreak(dense)).toBe(2);
   });
 });

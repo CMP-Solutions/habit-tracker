@@ -17,15 +17,21 @@ function utcDayKey(d: Date): string {
  * (UTC midnight representing a calendar day).
  */
 export function densifyDailyResults(
-  entries: { date: Date; success: boolean }[],
+  entries: { date: Date; success: boolean; skipped?: boolean }[],
   from: Date,
   to: Date
 ): DailyResult[] {
-  const byDate = new Map<string, boolean>();
+  const byDate = new Map<string, { success: boolean; skipped: boolean }>();
   for (const entry of entries) {
     const key = utcDayKey(entry.date);
-    // A day counts as a success if any entry for that day succeeded.
-    byDate.set(key, (byDate.get(key) ?? false) || entry.success);
+    const existing = byDate.get(key) ?? { success: false, skipped: false };
+    // A day counts as a success if any entry for that day succeeded, and as
+    // skipped if any entry for that day was skipped (in practice there's at
+    // most one entry per goal+day, so this is really just "this day's entry").
+    byDate.set(key, {
+      success: existing.success || entry.success,
+      skipped: existing.skipped || !!entry.skipped,
+    });
   }
 
   const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
@@ -34,7 +40,8 @@ export function densifyDailyResults(
   const results: DailyResult[] = [];
   while (cursor.getTime() <= end.getTime()) {
     const key = utcDayKey(cursor);
-    results.push({ date: key, success: byDate.get(key) ?? false });
+    const day = byDate.get(key);
+    results.push({ date: key, success: day?.success ?? false, skipped: day?.skipped ?? false });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return results;
