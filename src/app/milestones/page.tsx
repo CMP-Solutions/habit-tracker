@@ -72,8 +72,9 @@ export default function MilestonesPage() {
                         details={
                           <div className="space-y-1">
                             <p className="font-medium">{tier.name}</p>
+                            <p className="text-xs text-muted-foreground italic">{tier.tagline}</p>
                             <p className="text-xs text-muted-foreground">
-                              {u.type === "streak" ? `${tier.threshold} Tage Streak` : tier.name}
+                              {u.type === "streak" ? `${tier.threshold} Tage Streak` : `${tier.threshold}x insgesamt`}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {isAchieved
@@ -108,7 +109,8 @@ export default function MilestonesPage() {
                 <div key={tier.threshold} className="flex items-center gap-3">
                   <MedalBadge tier={tier} state="locked" size="sm" details={<p>{tier.name}</p>} />
                   <p>
-                    <span className="font-medium text-foreground">{tier.name}</span> — {tier.threshold} Tage Streak
+                    <span className="font-medium text-foreground">{tier.name}</span>
+                    <span className="italic"> „{tier.tagline}“</span> — {tier.threshold} Tage Streak
                   </p>
                 </div>
               ))}
@@ -141,8 +143,9 @@ export default function MilestonesPage() {
                   details={
                     <div className="space-y-1">
                       <p className="font-medium">{tier.name}</p>
+                      <p className="text-xs text-muted-foreground italic">{tier.tagline}</p>
                       <p className="text-xs text-muted-foreground">
-                        {m.type === "streak" ? `${m.threshold} Tage Streak` : tier.name}
+                        {m.type === "streak" ? `${m.threshold} Tage Streak` : `${m.threshold}x insgesamt`}
                       </p>
                       <p className="flex items-center gap-1 text-xs text-muted-foreground">
                         {m.goal.icon && <span>{m.goal.icon}</span>}
