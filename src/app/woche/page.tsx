@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { getWeek, type WeekResult, type WeekGoal, type WeekEntry } from "@/lib/storage/week";
 import { recordEntry } from "@/lib/storage/entries";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const WEEKDAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "UTC" });
 const DAY_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
@@ -152,6 +153,24 @@ function WeekCell({
   const complete = isComplete(goal, entry);
 
   const ringClass = isToday ? "ring-1 ring-primary/40" : "";
+
+  if (entry?.skipped) {
+    return (
+      <Popover>
+        <PopoverTrigger
+          className={`mx-auto flex size-10 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground outline-none ${ringClass}`}
+          aria-label={entry.skipReason ? `Übersprungen: ${entry.skipReason}` : "Übersprungen"}
+        >
+          <Check className="size-4" />
+        </PopoverTrigger>
+        {entry.skipReason && (
+          <PopoverContent>
+            <p className="text-xs text-muted-foreground">{entry.skipReason}</p>
+          </PopoverContent>
+        )}
+      </Popover>
+    );
+  }
 
   if (goal.type === "boolean") {
     return (
