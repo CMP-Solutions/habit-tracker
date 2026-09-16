@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createGoal } from "../goals";
 import { createCategory } from "../categories";
-import { recordEntry } from "../entries";
+import { recordEntry, recordSkip } from "../entries";
 import { getWeek } from "../week";
 import { utcToday } from "@/lib/domain/window";
 import { periodBounds } from "@/lib/domain/periodCount";
@@ -29,8 +29,18 @@ describe("week storage: getWeek", () => {
 
     const { goals } = await getWeek();
     const found = goals.find((g) => g.id === goal.id);
-    expect(found?.entries[days[0]]).toEqual({ done: true, value: null });
+    expect(found?.entries[days[0]]).toEqual({ done: true, value: null, skipped: false, skipReason: null });
     expect(found?.entries[days[1]]).toBeNull();
+  });
+
+  it("carries skipped/skipReason through for a paused day", async () => {
+    const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily" });
+    const { days } = await getWeek();
+    await recordSkip({ goalId: goal.id, date: days[0], reason: "Krank" });
+
+    const { goals } = await getWeek();
+    const found = goals.find((g) => g.id === goal.id);
+    expect(found?.entries[days[0]]).toEqual({ done: false, value: null, skipped: true, skipReason: "Krank" });
   });
 
   it("excludes a goal past its endDate", async () => {

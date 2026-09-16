@@ -5,6 +5,8 @@ import { periodBounds } from "@/lib/domain/periodCount";
 export interface WeekEntry {
   done: boolean;
   value: number | null;
+  skipped: boolean;
+  skipReason: string | null;
 }
 
 export interface WeekGoal {
@@ -60,7 +62,10 @@ export async function getWeek(): Promise<WeekResult> {
           .and((e) => e.date >= startStr && e.date <= endStr)
           .toArray();
   const entryByGoalAndDay = new Map(
-    entries.map((e) => [`${e.goalId}_${e.date}`, { done: e.done, value: e.value }])
+    entries.map((e) => [
+      `${e.goalId}_${e.date}`,
+      { done: e.done, value: e.value, skipped: e.skipped ?? false, skipReason: e.skipReason ?? null },
+    ])
   );
 
   return {
