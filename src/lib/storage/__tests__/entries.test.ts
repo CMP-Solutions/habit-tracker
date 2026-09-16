@@ -124,13 +124,18 @@ describe("recordSkip", () => {
 
   it("does not create a milestone even if it would otherwise complete a streak", async () => {
     const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
-    for (const date of ["2026-09-04", "2026-09-05", "2026-09-06"]) {
+    // Record 6 consecutive days (streak reaches 6, just short of the 7-day threshold).
+    for (const date of ["2026-09-04", "2026-09-05", "2026-09-06", "2026-09-07", "2026-09-08", "2026-09-09"]) {
       await recordEntry({ goalId: goal.id, date, done: true });
     }
-    await recordSkip({ goalId: goal.id, date: "2026-09-07" });
+    // Skip day 7 (2026-09-10): must not push the streak to 7 or trigger a 7-day milestone.
+    // This test would fail if recordSkip ever mistakenly called determineNewMilestones or
+    // if skips were mis-treated as extending the streak.
+    await recordSkip({ goalId: goal.id, date: "2026-09-10" });
     const milestones = await db.milestones.where("goalId").equals(goal.id).toArray();
-    // The 3 entries create a 3-day milestone, but recordSkip itself doesn't create any milestone
+    // Only the 3-day milestone from entry 3. The skip must not extend the streak to 7 or award a 7-day milestone.
     expect(milestones).toHaveLength(1);
+    expect(milestones[0]?.threshold).toBe(3);
   });
 
   it("overwrites a previously recorded entry for the same day", async () => {
