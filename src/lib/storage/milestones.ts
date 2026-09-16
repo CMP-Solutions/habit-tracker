@@ -72,6 +72,7 @@ export async function getMilestones(): Promise<{
     const recorded = entries.map((e) => ({
       date: parseUtcDateString(e.date) as Date,
       success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+      skipped: e.skipped ?? false,
     }));
     const createdDay = parseUtcDateString(goal.createdAt) as Date;
     const earliestEntryDate = recorded[0].date;

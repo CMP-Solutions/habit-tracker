@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createGoal } from "../goals";
-import { recordEntry } from "../entries";
+import { recordEntry, recordSkip } from "../entries";
 import { getMilestones } from "../milestones";
 
 const utcToday = () => {
@@ -77,5 +77,17 @@ describe("milestones storage: getMilestones", () => {
     expect(achieved).toHaveLength(2);
     expect(achieved.every((m) => m.goal.title === "Sport" && m.type === "streak")).toBe(true);
     expect(achieved.map((m) => m.threshold).sort((a, b) => a - b)).toEqual([3, 7]);
+  });
+
+  it("does not let a skipped today zero out upcoming streak progress", async () => {
+    const goal = await createGoal({ title: "Laufen", type: "boolean", periodicity: "daily" });
+    for (const n of [3, 2, 1]) {
+      await recordEntry({ goalId: goal.id, date: daysAgo(n), done: true });
+    }
+    await recordSkip({ goalId: goal.id, date: daysAgo(0) });
+
+    const { upcoming } = await getMilestones();
+    const progress = upcoming.find((u) => u.goalId === goal.id && u.type === "streak");
+    expect(progress?.current).toBe(3);
   });
 });
