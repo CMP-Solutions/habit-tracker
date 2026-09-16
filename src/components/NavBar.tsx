@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, CalendarDays, BarChart3, Trophy, Settings, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { CmpLogo } from "@/components/CmpLogo";
+import { NewMenu } from "@/components/NewMenu";
 
 const LINKS = [
   { href: "/", label: "Heute", icon: Home },
@@ -43,9 +44,9 @@ export function NavBar() {
             );
           })}
         </div>
-        <Link href="/goals/new" className={buttonVariants({ size: "sm", className: "shrink-0" })}>
-          <Plus /> Neues Ziel
-        </Link>
+        <NewMenu side="bottom" triggerClassName={buttonVariants({ size: "sm", className: "shrink-0" })}>
+          <Plus /> Neu
+        </NewMenu>
       </nav>
 
       {/* Phone: compact top bar (logo). */}
@@ -64,18 +65,19 @@ export function NavBar() {
         {LINKS.slice(0, 2).map((link) => (
           <TabLink key={link.href} link={link} active={pathname === link.href} />
         ))}
-        <Link
-          href="/goals/new"
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground transition-colors"
+        {/* A filled badge, not a text color, marks this as an action button —
+            plain primary text would be indistinguishable from an active
+            destination tab (see the mobile-adaptation critique finding). */}
+        <NewMenu
+          side="top"
+          align="center"
+          triggerClassName="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground transition-colors"
         >
-          {/* A filled badge, not a text color, marks this as an action button —
-              plain primary text would be indistinguishable from an active
-              destination tab (see the mobile-adaptation critique finding). */}
           <span className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Plus className="size-4" />
           </span>
           Neu
-        </Link>
+        </NewMenu>
         {LINKS.slice(2).map((link) => (
           <TabLink key={link.href} link={link} active={pathname === link.href} />
         ))}
