@@ -126,7 +126,7 @@ export async function deleteGoal(id: string): Promise<void> {
 
 export interface GoalWithProgress extends GoalRecord {
   category: { name: string; color: string } | null;
-  todayEntry: { done: boolean; value: number | null } | null;
+  todayEntry: { done: boolean; value: number | null; skipped: boolean; skipReason: string | null } | null;
   periodProgress: { current: number; target: number } | null;
   currentStreak: number;
 }
@@ -195,6 +195,7 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
           entries.map((e) => ({
             date: parseUtcDateString(e.date) as Date,
             success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+            skipped: e.skipped ?? false,
           })),
           from,
           yesterday
@@ -206,7 +207,9 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
         ? todayEntry.done
         : (todayEntry.value ?? 0) >= (goal.targetValue ?? Infinity)
       : false;
-    if (todaySuccess) streak++;
+    // A skipped today is transparent, same as any other skipped day: it
+    // neither breaks the streak computed through yesterday nor extends it.
+    if (!todayEntry?.skipped && todaySuccess) streak++;
     streakByGoal.set(goal.id, streak);
   }
 
@@ -216,7 +219,9 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
     return {
       ...goal,
       category: category ? { name: category.name, color: category.color } : null,
-      todayEntry: entry ? { done: entry.done, value: entry.value } : null,
+      todayEntry: entry
+        ? { done: entry.done, value: entry.value, skipped: entry.skipped ?? false, skipReason: entry.skipReason ?? null }
+        : null,
       periodProgress: periodProgressByGoal.get(goal.id) ?? null,
       currentStreak: streakByGoal.get(goal.id) ?? 0,
     };
@@ -259,6 +264,7 @@ export async function getGoalHistory(id: string): Promise<GoalHistory> {
         entries.map((e) => ({
           date: parseUtcDateString(e.date) as Date,
           success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+          skipped: e.skipped ?? false,
         })),
         from,
         today

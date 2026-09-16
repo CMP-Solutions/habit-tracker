@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createCategory } from "../categories";
 import { createGoal, listGoals, updateGoal, deleteGoal, listGoalsWithProgress, getGoalHistory } from "../goals";
-import { recordEntry } from "../entries";
+import { recordEntry, recordSkip } from "../entries";
 
 describe("goals storage", () => {
   beforeEach(async () => {
@@ -158,13 +158,53 @@ describe("goals storage", () => {
 
     const goals = await listGoalsWithProgress();
     const found = goals.find((g) => g.id === goal.id);
-    expect(found?.todayEntry).toEqual({ done: true, value: null });
+    expect(found?.todayEntry).toEqual({ done: true, value: null, skipped: false, skipReason: null });
   });
 
   it("reports a null todayEntry when there is no check-in today", async () => {
     await createGoal({ title: "Laufen", type: "boolean", periodicity: "daily" });
     const goals = await listGoalsWithProgress();
     expect(goals[0].todayEntry).toBeNull();
+  });
+
+  it("exposes skipped/skipReason on todayEntry when today was skipped", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    const today = new Date().toISOString().slice(0, 10);
+    await recordSkip({ goalId: goal.id, date: today, reason: "Krank" });
+
+    const [found] = await listGoalsWithProgress();
+    expect(found.todayEntry).toEqual({ done: false, value: null, skipped: true, skipReason: "Krank" });
+  });
+
+  it("does not break or extend the streak when today is skipped", async () => {
+    const goal = await createGoal({ title: "Meditieren", type: "boolean", periodicity: "daily" });
+    const daysAgo = (n: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - n);
+      return d.toISOString().slice(0, 10);
+    };
+    for (const n of [3, 2, 1]) {
+      await recordEntry({ goalId: goal.id, date: daysAgo(n), done: true });
+    }
+    await recordSkip({ goalId: goal.id, date: daysAgo(0) });
+
+    const [found] = await listGoalsWithProgress();
+    expect(found.currentStreak).toBe(3);
+  });
+
+  it("does not count a skipped day toward period-target progress", async () => {
+    const goal = await createGoal({
+      title: "Sport",
+      type: "boolean",
+      periodicity: "count_per_period",
+      periodUnit: "week",
+      periodTarget: 3,
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    await recordSkip({ goalId: goal.id, date: today, reason: "Krank" });
+
+    const [found] = await listGoalsWithProgress();
+    expect(found.periodProgress?.current).toBe(0);
   });
 
   it("includes periodProgress for a count_per_period goal", async () => {

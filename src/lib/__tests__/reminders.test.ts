@@ -36,25 +36,25 @@ describe("countOpenGoals", () => {
   });
 
   it("counts a boolean goal checked off today as not open", () => {
-    expect(countOpenGoals([goal({ todayEntry: { done: true, value: null } })])).toBe(0);
+    expect(countOpenGoals([goal({ todayEntry: { done: true, value: null, skipped: false, skipReason: null } })])).toBe(0);
   });
 
   it("counts a boolean goal explicitly marked not done today as open", () => {
-    expect(countOpenGoals([goal({ todayEntry: { done: false, value: null } })])).toBe(1);
+    expect(countOpenGoals([goal({ todayEntry: { done: false, value: null, skipped: false, skipReason: null } })])).toBe(1);
   });
 
   it("counts a quantitative goal below its target as open", () => {
-    const g = goal({ type: "quantitative", targetValue: 10000, todayEntry: { done: false, value: 4000 } });
+    const g = goal({ type: "quantitative", targetValue: 10000, todayEntry: { done: false, value: 4000, skipped: false, skipReason: null } });
     expect(countOpenGoals([g])).toBe(1);
   });
 
   it("counts a quantitative goal at or above its target as not open", () => {
-    const g = goal({ type: "quantitative", targetValue: 10000, todayEntry: { done: false, value: 10000 } });
+    const g = goal({ type: "quantitative", targetValue: 10000, todayEntry: { done: false, value: 10000, skipped: false, skipReason: null } });
     expect(countOpenGoals([g])).toBe(0);
   });
 
   it("sums across multiple goals", () => {
-    const done = goal({ id: "g1", todayEntry: { done: true, value: null } });
+    const done = goal({ id: "g1", todayEntry: { done: true, value: null, skipped: false, skipReason: null } });
     const open1 = goal({ id: "g2" });
     const open2 = goal({ id: "g3" });
     expect(countOpenGoals([done, open1, open2])).toBe(2);
