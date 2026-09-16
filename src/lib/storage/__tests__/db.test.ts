@@ -22,9 +22,9 @@ describe("db", () => {
   });
 
   it("finds an entry by the [goalId+date] compound index", async () => {
-    await db.entries.add({ id: "e1", goalId: "g1", date: "2026-09-10", done: true, value: null });
-    await db.entries.add({ id: "e2", goalId: "g1", date: "2026-09-11", done: false, value: null });
-    await db.entries.add({ id: "e3", goalId: "g2", date: "2026-09-10", done: true, value: null });
+    await db.entries.add({ id: "e1", goalId: "g1", date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null });
+    await db.entries.add({ id: "e2", goalId: "g1", date: "2026-09-11", done: false, value: null, skipped: false, skipReason: null });
+    await db.entries.add({ id: "e3", goalId: "g2", date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null });
 
     const found = await db.entries.where("[goalId+date]").equals(["g1", "2026-09-10"]).first();
     expect(found?.id).toBe("e1");

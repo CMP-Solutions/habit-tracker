@@ -26,7 +26,7 @@ describe("backup storage: exportData", () => {
   it("exports categories, goals, entries, and milestones", async () => {
     const category = await createCategory({ name: "Gesundheit", color: "#22c55e", icon: "heart" });
     const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily", categoryId: category.id });
-    await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null });
+    await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null });
     await db.milestones.add({ id: "m1", goalId: goal.id, type: "streak", threshold: 7, achievedAt: "2026-09-10" });
 
     const data = await exportData();
@@ -50,7 +50,7 @@ describe("backup storage: importData", () => {
   it("round-trips: export then import reproduces the same data", async () => {
     const category = await createCategory({ name: "Gesundheit", color: "#22c55e", icon: "heart" });
     const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily", categoryId: category.id });
-    await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null });
+    await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null });
     await db.milestones.add({ id: "m1", goalId: goal.id, type: "streak", threshold: 7, achievedAt: "2026-09-10" });
 
     const exported = await exportData();
