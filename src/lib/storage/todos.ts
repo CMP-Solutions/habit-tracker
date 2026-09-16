@@ -3,7 +3,7 @@ import { generateId } from "./id";
 import { utcToday } from "@/lib/domain/window";
 
 function todayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return utcToday().toISOString().slice(0, 10);
 }
 
 export interface CreateTodoInput {

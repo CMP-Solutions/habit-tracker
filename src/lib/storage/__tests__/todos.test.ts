@@ -107,7 +107,7 @@ describe("listTodos", () => {
   });
 
   it("filters to only done todos when done is true", async () => {
-    const a = await createTodo({ title: "Offen" });
+    await createTodo({ title: "Offen" });
     const b = await createTodo({ title: "Erledigt" });
     await updateTodo(b.id, { done: true });
 
@@ -116,7 +116,7 @@ describe("listTodos", () => {
   });
 
   it("returns every todo, done or not, when no filter is given", async () => {
-    const a = await createTodo({ title: "Offen" });
+    await createTodo({ title: "Offen" });
     const b = await createTodo({ title: "Erledigt" });
     await updateTodo(b.id, { done: true });
 

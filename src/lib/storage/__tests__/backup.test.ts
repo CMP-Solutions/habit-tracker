@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db";
 import { createCategory } from "../categories";
 import { createGoal } from "../goals";
+import { createTodo } from "../todos";
 import { exportData, importData } from "../backup";
 
 describe("backup storage: exportData", () => {
@@ -11,6 +12,7 @@ describe("backup storage: exportData", () => {
     await db.goals.clear();
     await db.entries.clear();
     await db.milestones.clear();
+    await db.todos.clear();
   });
 
   it("exports an empty dataset when nothing exists yet", async () => {
@@ -20,6 +22,7 @@ describe("backup storage: exportData", () => {
     expect(data.goals).toEqual([]);
     expect(data.entries).toEqual([]);
     expect(data.milestones).toEqual([]);
+    expect(data.todos).toEqual([]);
     expect(data.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
@@ -37,6 +40,13 @@ describe("backup storage: exportData", () => {
     expect(data.milestones).toHaveLength(1);
     expect(data.milestones[0].id).toBe("m1");
   });
+
+  it("exports todos", async () => {
+    const todo = await createTodo({ title: "Steuererklärung abschicken" });
+
+    const data = await exportData();
+    expect(data.todos).toEqual([todo]);
+  });
 });
 
 describe("backup storage: importData", () => {
@@ -45,6 +55,7 @@ describe("backup storage: importData", () => {
     await db.goals.clear();
     await db.entries.clear();
     await db.milestones.clear();
+    await db.todos.clear();
   });
 
   it("round-trips: export then import reproduces the same data", async () => {
@@ -52,12 +63,14 @@ describe("backup storage: importData", () => {
     const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily", categoryId: category.id });
     await db.entries.add({ id: "e1", goalId: goal.id, date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null });
     await db.milestones.add({ id: "m1", goalId: goal.id, type: "streak", threshold: 7, achievedAt: "2026-09-10" });
+    const todo = await createTodo({ title: "Steuererklärung abschicken" });
 
     const exported = await exportData();
     await db.categories.clear();
     await db.goals.clear();
     await db.entries.clear();
     await db.milestones.clear();
+    await db.todos.clear();
 
     await importData(exported);
 
@@ -65,6 +78,23 @@ describe("backup storage: importData", () => {
     expect(await db.goals.toArray()).toEqual([goal]);
     expect((await db.entries.toArray()).map((e) => e.id)).toEqual(["e1"]);
     expect((await db.milestones.toArray()).map((m) => m.id)).toEqual(["m1"]);
+    expect(await db.todos.toArray()).toEqual([todo]);
+  });
+
+  it("imports an old-format export without a todos field, resulting in an empty todos table", async () => {
+    await createTodo({ title: "Sollte verschwinden" });
+    const oldExport = {
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      categories: [],
+      goals: [],
+      entries: [],
+      milestones: [],
+    };
+
+    await importData(oldExport);
+
+    expect(await db.todos.toArray()).toEqual([]);
   });
 
   it("replaces existing local data rather than merging", async () => {

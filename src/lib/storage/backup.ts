@@ -1,4 +1,4 @@
-import { db, type CategoryRecord, type GoalRecord, type EntryRecord, type MilestoneRecord } from "./db";
+import { db, type CategoryRecord, type GoalRecord, type EntryRecord, type MilestoneRecord, type TodoRecord } from "./db";
 
 export interface ExportedData {
   version: 1;
@@ -7,14 +7,16 @@ export interface ExportedData {
   goals: GoalRecord[];
   entries: EntryRecord[];
   milestones: MilestoneRecord[];
+  todos?: TodoRecord[];
 }
 
 export async function exportData(): Promise<ExportedData> {
-  const [categories, goals, entries, milestones] = await Promise.all([
+  const [categories, goals, entries, milestones, todos] = await Promise.all([
     db.categories.toArray(),
     db.goals.toArray(),
     db.entries.toArray(),
     db.milestones.toArray(),
+    db.todos.toArray(),
   ]);
   return {
     version: 1,
@@ -23,6 +25,7 @@ export async function exportData(): Promise<ExportedData> {
     goals,
     entries,
     milestones,
+    todos,
   };
 }
 
@@ -63,6 +66,20 @@ function isMilestoneRecord(v: unknown): v is MilestoneRecord {
   );
 }
 
+function isTodoRecord(v: unknown): v is TodoRecord {
+  if (typeof v !== "object" || v === null) return false;
+  const r = v as Record<string, unknown>;
+  return (
+    typeof r.id === "string" &&
+    typeof r.title === "string" &&
+    (typeof r.dueDate === "string" || r.dueDate === null) &&
+    (typeof r.dueTime === "string" || r.dueTime === null) &&
+    (r.priority === "low" || r.priority === "normal" || r.priority === "high" || r.priority === null) &&
+    typeof r.done === "boolean" &&
+    typeof r.createdAt === "string"
+  );
+}
+
 function isValidExport(v: unknown): v is ExportedData {
   if (typeof v !== "object" || v === null) return false;
   const r = v as Record<string, unknown>;
@@ -71,6 +88,7 @@ function isValidExport(v: unknown): v is ExportedData {
   if (!Array.isArray(r.goals) || !r.goals.every(isGoalRecord)) return false;
   if (!Array.isArray(r.entries) || !r.entries.every(isEntryRecord)) return false;
   if (!Array.isArray(r.milestones) || !r.milestones.every(isMilestoneRecord)) return false;
+  if (r.todos !== undefined && (!Array.isArray(r.todos) || !r.todos.every(isTodoRecord))) return false;
   return true;
 }
 
@@ -79,14 +97,16 @@ export async function importData(data: unknown): Promise<void> {
     throw new Error("Invalid export file.");
   }
 
-  await db.transaction("rw", db.categories, db.goals, db.entries, db.milestones, async () => {
+  await db.transaction("rw", db.categories, db.goals, db.entries, db.milestones, db.todos, async () => {
     await db.categories.clear();
     await db.goals.clear();
     await db.entries.clear();
     await db.milestones.clear();
+    await db.todos.clear();
     await db.categories.bulkAdd(data.categories);
     await db.goals.bulkAdd(data.goals);
     await db.entries.bulkAdd(data.entries);
     await db.milestones.bulkAdd(data.milestones);
+    await db.todos.bulkAdd(data.todos ?? []);
   });
 }
