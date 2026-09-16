@@ -181,16 +181,13 @@ export default function DashboardPage() {
             <h2 className="text-sm font-medium text-muted-foreground">ToDos</h2>
             <div className="flex items-center gap-3">
               <Link
-                href="/todos/new"
-                className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
-              >
-                Neues ToDo
-              </Link>
-              <Link
                 href="/todos"
                 className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
               >
                 Alle anzeigen
+              </Link>
+              <Link href="/todos/new" className={buttonVariants({ size: "sm" })}>
+                <Plus /> Neues ToDo
               </Link>
             </div>
           </div>
