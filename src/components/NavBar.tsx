@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarDays, BarChart3, Trophy, Settings, Plus } from "lucide-react";
+import { Home, CalendarDays, CalendarRange, BarChart3, Trophy, Settings, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { CmpLogo } from "@/components/CmpLogo";
 import { NewMenu } from "@/components/NewMenu";
@@ -10,6 +10,7 @@ import { NewMenu } from "@/components/NewMenu";
 const LINKS = [
   { href: "/", label: "Heute", icon: Home },
   { href: "/woche", label: "Woche", icon: CalendarDays },
+  { href: "/kalender", label: "Kalender", icon: CalendarRange },
   { href: "/stats", label: "Auswertung", icon: BarChart3 },
   { href: "/milestones", label: "Meilensteine", icon: Trophy },
   { href: "/settings", label: "Einstellungen", icon: Settings },

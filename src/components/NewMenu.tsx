@@ -43,6 +43,13 @@ export function NewMenu({
         >
           Neues ToDo
         </Link>
+        <Link
+          href="/kalender/new"
+          onClick={() => setOpen(false)}
+          className="block rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+        >
+          Neuer Termin
+        </Link>
       </PopoverContent>
     </Popover>
   );
