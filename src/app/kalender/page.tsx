@@ -10,9 +10,14 @@ import { getOccurrencesForRange } from "@/lib/storage/events";
 import type { EventOccurrence } from "@/lib/domain/eventOccurrences";
 import { utcToday } from "@/lib/domain/window";
 
-const MONTH_FORMAT = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
-const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long" });
-const SELECTED_DAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long" });
+const MONTH_FORMAT = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric", timeZone: "UTC" });
+const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "UTC" });
+const SELECTED_DAY_FORMAT = new Intl.DateTimeFormat("de-DE", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
 
 function formatTimeSuffix(time: string | null): string {
   return time ? ` · ${time}` : "";
@@ -32,10 +37,11 @@ export default function KalenderPage() {
     const rangeEnd = new Date(days[days.length - 1]);
     rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
     getOccurrencesForRange(rangeStart, rangeEnd).then(setOccurrences);
-    // `days` is recomputed fresh from `cursor` every render; `cursor` is the
-    // effect's true dependency.
+    // `days` is deterministically derived from `cursor` and `viewMode` every
+    // render, so those two are the effect's true dependencies — not `days`
+    // itself, which is a new array each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursor]);
+  }, [cursor, viewMode]);
 
   const occurrencesByDate = new Map<string, EventOccurrence[]>();
   for (const occ of occurrences) {
@@ -45,19 +51,25 @@ export default function KalenderPage() {
   }
 
   function goToPrevious() {
+    setSelectedDate(null);
     setCursor((prev) => {
+      if (viewMode === "month") {
+        return new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() - 1, 1));
+      }
       const next = new Date(prev);
-      if (viewMode === "month") next.setUTCMonth(next.getUTCMonth() - 1);
-      else next.setUTCDate(next.getUTCDate() - 7);
+      next.setUTCDate(next.getUTCDate() - 7);
       return next;
     });
   }
 
   function goToNext() {
+    setSelectedDate(null);
     setCursor((prev) => {
+      if (viewMode === "month") {
+        return new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + 1, 1));
+      }
       const next = new Date(prev);
-      if (viewMode === "month") next.setUTCMonth(next.getUTCMonth() + 1);
-      else next.setUTCDate(next.getUTCDate() + 7);
+      next.setUTCDate(next.getUTCDate() + 7);
       return next;
     });
   }
@@ -101,7 +113,10 @@ export default function KalenderPage() {
           <button
             key={mode}
             type="button"
-            onClick={() => setViewMode(mode)}
+            onClick={() => {
+              setViewMode(mode);
+              setSelectedDate(null);
+            }}
             className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
               viewMode === mode ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
