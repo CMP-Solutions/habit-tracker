@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Plus } from "lucide-react";
 import { GoalCard } from "@/components/GoalCard";
 import { TodoRow } from "@/components/TodoRow";
@@ -63,12 +64,30 @@ function checkGoalReminders(goals: GoalWithProgress[]) {
   }
 }
 
+// How long a completed todo stays visible, checked, before it fades out —
+// long enough to register the check as feedback, short enough not to feel
+// like it's lingering. The fade itself is a separate, equal-length beat
+// handled by AnimatePresence's exit transition below.
+const COMPLETE_LINGER_MS = 400;
+
 export default function DashboardPage() {
   const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const [todos, setTodos] = useState<TodoRecord[]>([]);
   const today = new Date();
   const todayStr = utcToday().toISOString().slice(0, 10);
   const userName = useUserName();
+  const reducedMotion = useReducedMotion();
+  // Pending "remove from view" timers per todo id, so completing then
+  // un-completing the same todo within the linger window cancels the
+  // scheduled removal instead of yanking it away regardless.
+  const removalTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const timers = removalTimers.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   const load = useCallback(async () => {
     const data = await listGoalsWithProgress();
@@ -100,19 +119,36 @@ export default function DashboardPage() {
     load();
   }
 
+  // Shared by the checkbox and the status selector — both ultimately just
+  // decide whether the todo is now done, and both should feel the same:
+  // show the checked state immediately, keep it visible for a beat so the
+  // action reads as intentional feedback rather than a glitch, then let it
+  // fade out (handled by AnimatePresence around the list below).
+  function settleTodoDone(id: string, nowDone: boolean, patch: Partial<TodoRecord>) {
+    const existingTimer = removalTimers.current.get(id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      removalTimers.current.delete(id);
+    }
+
+    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+
+    if (nowDone) {
+      const timer = setTimeout(() => {
+        removalTimers.current.delete(id);
+        setTodos((prev) => prev.filter((t) => t.id !== id));
+      }, COMPLETE_LINGER_MS);
+      removalTimers.current.set(id, timer);
+    }
+  }
+
   async function handleToggleTodoDone(id: string, done: boolean) {
-    setTodos((prev) => prev.filter((t) => t.id !== id));
+    settleTodoDone(id, done, { done, status: done ? "done" : "open" });
     await updateTodo(id, { done });
   }
 
   async function handleTodoStatusChange(id: string, status: TodoStatus) {
-    // A status other than "done" always keeps the todo among today's open
-    // ones, so it's only removed from view when it actually completes.
-    if (status === "done") {
-      setTodos((prev) => prev.filter((t) => t.id !== id));
-    } else {
-      setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, status, done: false } : t)));
-    }
+    settleTodoDone(id, status === "done", { status, done: status === "done" });
     await updateTodo(id, { status });
   }
 
@@ -203,21 +239,45 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {todos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nichts Dringendes offen.</p>
-          ) : (
-            <div className="space-y-2">
+          {/*
+            The empty message lives INSIDE the same AnimatePresence as the
+            list items, keyed alongside them, rather than in a ternary that
+            swaps AnimatePresence out of the tree entirely. AnimatePresence
+            can only play an exit animation for a child while it — and the
+            AnimatePresence wrapping it — stay mounted; a ternary keyed off
+            `todos.length` flips to the empty branch the instant the last
+            todo is removed from state, unmounting the fading item (and its
+            AnimatePresence) before the animation has a chance to run. Kept
+            as one continuous list, the last item's fade-out and the empty
+            message's fade-in can overlap naturally instead of one cutting
+            the other off.
+          */}
+          <div className="space-y-2">
+            <AnimatePresence initial={false}>
+              {todos.length === 0 && (
+                <motion.p
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: reducedMotion ? 0.05 : 0.5 }}
+                  className="text-sm text-muted-foreground"
+                >
+                  Nichts Dringendes offen.
+                </motion.p>
+              )}
               {todos.map((todo) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  todayStr={todayStr}
-                  onToggleDone={handleToggleTodoDone}
-                  onStatusChange={handleTodoStatusChange}
-                />
+                <motion.div key={todo.id} exit={{ opacity: 0 }} transition={{ duration: reducedMotion ? 0.05 : 0.5 }}>
+                  <TodoRow
+                    todo={todo}
+                    todayStr={todayStr}
+                    onToggleDone={handleToggleTodoDone}
+                    onStatusChange={handleTodoStatusChange}
+                  />
+                </motion.div>
               ))}
-            </div>
-          )}
+            </AnimatePresence>
+          </div>
         </section>
       </div>
     </main>
