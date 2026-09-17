@@ -8,11 +8,12 @@ describe("db", () => {
     await db.goals.clear();
     await db.entries.clear();
     await db.milestones.clear();
+    await db.events.clear();
   });
 
   it("opens with the expected tables", async () => {
     await db.open();
-    expect(db.tables.map((t) => t.name).sort()).toEqual(["categories", "entries", "goals", "milestones", "todos"]);
+    expect(db.tables.map((t) => t.name).sort()).toEqual(["categories", "entries", "events", "goals", "milestones", "todos"]);
   });
 
   it("stores and retrieves a category record", async () => {

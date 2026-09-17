@@ -74,12 +74,26 @@ export interface TodoRecord {
   createdAt: string;
 }
 
+export interface EventRecord {
+  id: string;
+  title: string;
+  /** "YYYY-MM-DD", UTC calendar day — the first/only occurrence of the series. */
+  date: string;
+  allDay: boolean;
+  /** "HH:mm", only meaningful when allDay is false. */
+  time: string | null;
+  recurrence: "none" | "weekly" | "yearly";
+  /** "YYYY-MM-DD" — the day the event was created, UTC. */
+  createdAt: string;
+}
+
 type RitualDb = Dexie & {
   categories: EntityTable<CategoryRecord, "id">;
   goals: EntityTable<GoalRecord, "id">;
   entries: EntityTable<EntryRecord, "id">;
   milestones: EntityTable<MilestoneRecord, "id">;
   todos: EntityTable<TodoRecord, "id">;
+  events: EntityTable<EventRecord, "id">;
 };
 
 export const db = new Dexie("ritual") as RitualDb;
@@ -97,4 +111,13 @@ db.version(2).stores({
   entries: "id, goalId, date, [goalId+date]",
   milestones: "id, goalId, [goalId+type+threshold]",
   todos: "id, done, dueDate",
+});
+
+db.version(3).stores({
+  categories: "id, name",
+  goals: "id, archived, categoryId, createdAt",
+  entries: "id, goalId, date, [goalId+date]",
+  milestones: "id, goalId, [goalId+type+threshold]",
+  todos: "id, done, dueDate",
+  events: "id, date",
 });
