@@ -5,12 +5,13 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { CalendarGrid } from "@/components/CalendarGrid";
-import { monthGridDays } from "@/lib/domain/calendarGrid";
+import { monthGridDays, weekDays } from "@/lib/domain/calendarGrid";
 import { getOccurrencesForRange } from "@/lib/storage/events";
 import type { EventOccurrence } from "@/lib/domain/eventOccurrences";
 import { utcToday } from "@/lib/domain/window";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
+const WEEK_RANGE_FORMAT = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long" });
 const SELECTED_DAY_FORMAT = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long" });
 
 function formatTimeSuffix(time: string | null): string {
@@ -22,8 +23,9 @@ export default function KalenderPage() {
   const [cursor, setCursor] = useState<Date>(() => utcToday());
   const [occurrences, setOccurrences] = useState<EventOccurrence[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
 
-  const days = monthGridDays(cursor);
+  const days = viewMode === "month" ? monthGridDays(cursor) : weekDays(cursor);
 
   useEffect(() => {
     const rangeStart = days[0];
@@ -42,18 +44,20 @@ export default function KalenderPage() {
     occurrencesByDate.set(occ.date, list);
   }
 
-  function goToPreviousMonth() {
+  function goToPrevious() {
     setCursor((prev) => {
       const next = new Date(prev);
-      next.setUTCMonth(next.getUTCMonth() - 1);
+      if (viewMode === "month") next.setUTCMonth(next.getUTCMonth() - 1);
+      else next.setUTCDate(next.getUTCDate() - 7);
       return next;
     });
   }
 
-  function goToNextMonth() {
+  function goToNext() {
     setCursor((prev) => {
       const next = new Date(prev);
-      next.setUTCMonth(next.getUTCMonth() + 1);
+      if (viewMode === "month") next.setUTCMonth(next.getUTCMonth() + 1);
+      else next.setUTCDate(next.getUTCDate() + 7);
       return next;
     });
   }
@@ -70,11 +74,15 @@ export default function KalenderPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <button type="button" onClick={goToPreviousMonth} className="rounded-md p-1.5 hover:bg-muted" aria-label="Vorheriger Monat">
+        <button type="button" onClick={goToPrevious} className="rounded-md p-1.5 hover:bg-muted" aria-label="Zurück">
           <ChevronLeft className="size-4" />
         </button>
         <div className="flex items-center gap-3">
-          <p className="font-medium capitalize">{MONTH_FORMAT.format(cursor)}</p>
+          <p className="font-medium capitalize">
+            {viewMode === "month"
+              ? MONTH_FORMAT.format(cursor)
+              : `${WEEK_RANGE_FORMAT.format(days[0])} – ${WEEK_RANGE_FORMAT.format(days[6])}`}
+          </p>
           <button
             type="button"
             onClick={() => setCursor(utcToday())}
@@ -83,19 +91,34 @@ export default function KalenderPage() {
             Heute
           </button>
         </div>
-        <button type="button" onClick={goToNextMonth} className="rounded-md p-1.5 hover:bg-muted" aria-label="Nächster Monat">
+        <button type="button" onClick={goToNext} className="rounded-md p-1.5 hover:bg-muted" aria-label="Weiter">
           <ChevronRight className="size-4" />
         </button>
+      </div>
+
+      <div className="inline-flex rounded-lg border bg-muted/50 p-1">
+        {(["month", "week"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setViewMode(mode)}
+            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+              viewMode === mode ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {mode === "month" ? "Monat" : "Woche"}
+          </button>
+        ))}
       </div>
 
       <CalendarGrid
         days={days}
         occurrencesByDate={occurrencesByDate}
-        currentMonth={cursor.getUTCMonth()}
+        currentMonth={viewMode === "month" ? cursor.getUTCMonth() : undefined}
         todayStr={todayStr}
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
-        maxVisible={3}
+        maxVisible={viewMode === "month" ? 3 : 6}
       />
 
       {selectedDate && (
