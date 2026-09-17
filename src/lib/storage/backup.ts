@@ -105,6 +105,27 @@ function isEventRecord(v: unknown): v is EventRecord {
   );
 }
 
+/**
+ * Foreign keys are only validated for shape (a string) by the per-record
+ * type guards above — this checks they actually point at a row present in
+ * the same export, so a corrupted or hand-edited file can't silently leave
+ * orphaned rows in the database after import (they'd never be reachable
+ * through the UI again, yet would keep being re-exported forever).
+ */
+function hasValidReferences(data: {
+  categories: CategoryRecord[];
+  goals: GoalRecord[];
+  entries: EntryRecord[];
+  milestones: MilestoneRecord[];
+}): boolean {
+  const categoryIds = new Set(data.categories.map((c) => c.id));
+  const goalIds = new Set(data.goals.map((g) => g.id));
+  if (data.goals.some((g) => g.categoryId !== null && !categoryIds.has(g.categoryId))) return false;
+  if (data.entries.some((e) => !goalIds.has(e.goalId))) return false;
+  if (data.milestones.some((m) => !goalIds.has(m.goalId))) return false;
+  return true;
+}
+
 function isValidExport(v: unknown): v is ExportedData {
   if (typeof v !== "object" || v === null) return false;
   const r = v as Record<string, unknown>;
@@ -115,6 +136,16 @@ function isValidExport(v: unknown): v is ExportedData {
   if (!Array.isArray(r.milestones) || !r.milestones.every(isMilestoneRecord)) return false;
   if (r.todos !== undefined && (!Array.isArray(r.todos) || !r.todos.every(isTodoRecord))) return false;
   if (r.events !== undefined && (!Array.isArray(r.events) || !r.events.every(isEventRecord))) return false;
+  if (
+    !hasValidReferences({
+      categories: r.categories as CategoryRecord[],
+      goals: r.goals as GoalRecord[],
+      entries: r.entries as EntryRecord[],
+      milestones: r.milestones as MilestoneRecord[],
+    })
+  ) {
+    return false;
+  }
   return true;
 }
 

@@ -192,6 +192,55 @@ describe("backup storage: importData", () => {
     ).rejects.toThrow("Invalid export file.");
   });
 
+  it("rejects a file with an entry pointing at a nonexistent goal", async () => {
+    await expect(
+      importData({
+        version: 1,
+        exportedAt: "x",
+        categories: [],
+        goals: [],
+        entries: [{ id: "e1", goalId: "does-not-exist", date: "2026-09-10", done: true, value: null, skipped: false, skipReason: null }],
+        milestones: [],
+      })
+    ).rejects.toThrow("Invalid export file.");
+  });
+
+  it("rejects a file with a milestone pointing at a nonexistent goal", async () => {
+    await expect(
+      importData({
+        version: 1,
+        exportedAt: "x",
+        categories: [],
+        goals: [],
+        entries: [],
+        milestones: [{ id: "m1", goalId: "does-not-exist", type: "streak", threshold: 7, achievedAt: "2026-09-10" }],
+      })
+    ).rejects.toThrow("Invalid export file.");
+  });
+
+  it("rejects a file with a goal pointing at a nonexistent category", async () => {
+    const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily" });
+    await expect(
+      importData({
+        version: 1,
+        exportedAt: "x",
+        categories: [],
+        goals: [{ ...goal, categoryId: "does-not-exist" }],
+        entries: [],
+        milestones: [],
+      })
+    ).rejects.toThrow("Invalid export file.");
+  });
+
+  it("accepts a file whose entries/milestones/goals reference each other consistently", async () => {
+    const category = await createCategory({ name: "Gesundheit", color: "#22c55e", icon: "heart" });
+    const goal = await createGoal({ title: "Wasser trinken", type: "boolean", periodicity: "daily", categoryId: category.id });
+    const exported = await exportData();
+
+    await expect(importData(exported)).resolves.toBeUndefined();
+    expect(await db.goals.toArray()).toEqual([goal]);
+  });
+
   it("rejects a file that isn't an object at all", async () => {
     await expect(importData("not json")).rejects.toThrow("Invalid export file.");
     await expect(importData(null)).rejects.toThrow("Invalid export file.");
