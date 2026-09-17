@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,6 +99,13 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
                       </Button>
                     </form>
                   </div>
+                  {/* Below the card, not above it — visible without being the
+                      first thing read, since it's a caveat, not the point of
+                      this screen. */}
+                  <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+                    <TriangleAlert className="size-3.5 shrink-0 text-destructive" />
+                    Im Inkognito-/privaten Modus werden deine Daten nicht gespeichert.
+                  </p>
                 </motion.div>
               )}
               {phase === "welcome" && (
