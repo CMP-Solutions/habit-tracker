@@ -137,7 +137,7 @@ export default function KalenderPage() {
       />
 
       {selectedDate && (
-        <div className="space-y-2 rounded-lg border p-4">
+        <div className="space-y-2 rounded-xl border bg-card p-4 backdrop-blur-xl">
           <p className="text-sm font-medium">{SELECTED_DAY_FORMAT.format(new Date(selectedDate + "T00:00:00Z"))}</p>
           {selectedOccurrences.length === 0 ? (
             <p className="text-sm text-muted-foreground">Keine Termine.</p>

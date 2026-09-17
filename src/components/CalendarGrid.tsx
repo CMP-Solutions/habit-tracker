@@ -21,7 +21,7 @@ export function CalendarGrid({
   maxVisible: number;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 rounded-xl border bg-card p-3 backdrop-blur-xl sm:p-4">
       <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
         {WEEKDAY_LABELS.map((label) => (
           <div key={label}>{label}</div>
@@ -43,7 +43,7 @@ export function CalendarGrid({
               type="button"
               onClick={() => onSelectDate(dateStr)}
               className={`min-h-20 rounded-lg border p-1.5 text-left transition-colors ${
-                isSelected ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                isSelected ? "border-primary bg-primary/10" : "bg-muted hover:bg-muted/70"
               } ${isOutsideMonth ? "opacity-40" : ""}`}
             >
               <span className={`text-xs ${isToday ? "font-semibold text-primary" : "text-muted-foreground"}`}>
@@ -51,7 +51,7 @@ export function CalendarGrid({
               </span>
               <div className="mt-1 space-y-0.5">
                 {visible.map((occ) => (
-                  <p key={`${occ.eventId}-${occ.date}`} className="truncate rounded bg-muted px-1 py-0.5 text-[11px]">
+                  <p key={`${occ.eventId}-${occ.date}`} className="truncate rounded bg-card px-1 py-0.5 text-[11px]">
                     {occ.title}
                   </p>
                 ))}
