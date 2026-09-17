@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { GOAL_TEMPLATES } from "@/lib/domain/goalTemplates";
 import { listGoalsWithProgress, createGoal, type GoalWithProgress } from "@/lib/storage/goals";
-import { getDashboardTodos, updateTodo } from "@/lib/storage/todos";
+import { getDashboardTodos, updateTodo, type TodoStatus } from "@/lib/storage/todos";
 import type { TodoRecord } from "@/lib/storage/db";
 import { utcToday } from "@/lib/domain/window";
 import {
@@ -105,6 +105,17 @@ export default function DashboardPage() {
     await updateTodo(id, { done });
   }
 
+  async function handleTodoStatusChange(id: string, status: TodoStatus) {
+    // A status other than "done" always keeps the todo among today's open
+    // ones, so it's only removed from view when it actually completes.
+    if (status === "done") {
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+    } else {
+      setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, status, done: false } : t)));
+    }
+    await updateTodo(id, { status });
+  }
+
   // A goal skipped for today was deliberately paused, not left incomplete —
   // it's excluded from the ratio entirely rather than counted as 0%.
   const activeGoals = goals.filter((g) => !g.todayEntry?.skipped);
@@ -178,7 +189,7 @@ export default function DashboardPage() {
 
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">ToDos</h2>
+            <h2 className="text-sm font-medium text-muted-foreground">Offene ToDos</h2>
             <div className="flex items-center gap-3">
               <Link
                 href="/todos"
@@ -197,7 +208,13 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {todos.map((todo) => (
-                <TodoRow key={todo.id} todo={todo} todayStr={todayStr} onToggleDone={handleToggleTodoDone} />
+                <TodoRow
+                  key={todo.id}
+                  todo={todo}
+                  todayStr={todayStr}
+                  onToggleDone={handleToggleTodoDone}
+                  onStatusChange={handleTodoStatusChange}
+                />
               ))}
             </div>
           )}

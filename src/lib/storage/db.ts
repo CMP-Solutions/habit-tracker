@@ -63,6 +63,13 @@ export interface TodoRecord {
   dueTime: string | null;
   priority: "low" | "normal" | "high" | null;
   done: boolean;
+  /**
+   * Kept in sync with `done` in both directions (see `updateTodo`): setting
+   * status to "done" always sets `done: true` and vice versa, so the two
+   * never disagree. Old rows from before this field existed have no
+   * `status` at all — read sites derive it from `done` defensively.
+   */
+  status: "open" | "in_progress" | "deferred" | "done";
   /** "YYYY-MM-DD" — the day the todo was created, UTC. */
   createdAt: string;
 }

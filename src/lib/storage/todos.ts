@@ -6,6 +6,8 @@ function todayString(): string {
   return utcToday().toISOString().slice(0, 10);
 }
 
+export type TodoStatus = "open" | "in_progress" | "deferred" | "done";
+
 export interface CreateTodoInput {
   title: string;
   dueDate?: string | null;
@@ -24,6 +26,7 @@ export async function createTodo(input: CreateTodoInput): Promise<TodoRecord> {
     dueTime: input.dueTime ?? null,
     priority: input.priority ?? null,
     done: false,
+    status: "open",
     createdAt: todayString(),
   };
   await db.todos.add(todo);
@@ -38,7 +41,7 @@ export async function getTodo(id: string): Promise<TodoRecord> {
 
 export async function updateTodo(
   id: string,
-  patch: Partial<CreateTodoInput> & { done?: boolean }
+  patch: Partial<CreateTodoInput> & { done?: boolean; status?: TodoStatus }
 ): Promise<TodoRecord> {
   const existing = await db.todos.get(id);
   if (!existing) throw new Error("Not found");
@@ -47,6 +50,17 @@ export async function updateTodo(
   }
   const changes: Partial<TodoRecord> = { ...patch };
   if (patch.title !== undefined) changes.title = patch.title.trim();
+
+  // status and done are two views of the same completion state and must
+  // never disagree — whichever one the caller set drives the other. status
+  // takes precedence when both are given (a caller-error case that
+  // shouldn't happen from the UI, but status is the more expressive field).
+  if (patch.status !== undefined) {
+    changes.done = patch.status === "done";
+  } else if (patch.done !== undefined) {
+    changes.status = patch.done ? "done" : "open";
+  }
+
   await db.todos.update(id, changes);
   return (await db.todos.get(id)) as TodoRecord;
 }

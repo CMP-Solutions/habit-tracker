@@ -15,6 +15,7 @@ describe("todos storage: CRUD", () => {
     expect(todo.dueTime).toBeNull();
     expect(todo.priority).toBeNull();
     expect(todo.done).toBe(false);
+    expect(todo.status).toBe("open");
     expect(todo.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
@@ -80,6 +81,57 @@ describe("todos storage: CRUD", () => {
 
   it("does not throw deleting a nonexistent todo", async () => {
     await expect(deleteTodo("does-not-exist")).resolves.toBeUndefined();
+  });
+});
+
+describe("status/done sync", () => {
+  beforeEach(async () => {
+    await db.todos.clear();
+  });
+
+  it("setting status to done also sets done to true", async () => {
+    const created = await createTodo({ title: "Post abholen" });
+    const updated = await updateTodo(created.id, { status: "done" });
+    expect(updated.status).toBe("done");
+    expect(updated.done).toBe(true);
+  });
+
+  it("setting status to something other than done sets done to false", async () => {
+    const created = await createTodo({ title: "Post abholen" });
+    await updateTodo(created.id, { status: "done" });
+    const updated = await updateTodo(created.id, { status: "in_progress" });
+    expect(updated.status).toBe("in_progress");
+    expect(updated.done).toBe(false);
+  });
+
+  it("setting done to true also sets status to done", async () => {
+    const created = await createTodo({ title: "Post abholen" });
+    const updated = await updateTodo(created.id, { done: true });
+    expect(updated.done).toBe(true);
+    expect(updated.status).toBe("done");
+  });
+
+  it("setting done to false also sets status to open", async () => {
+    const created = await createTodo({ title: "Post abholen" });
+    await updateTodo(created.id, { done: true });
+    const updated = await updateTodo(created.id, { done: false });
+    expect(updated.done).toBe(false);
+    expect(updated.status).toBe("open");
+  });
+
+  it("allows setting status to deferred without touching done", async () => {
+    const created = await createTodo({ title: "Post abholen" });
+    const updated = await updateTodo(created.id, { status: "deferred" });
+    expect(updated.status).toBe("deferred");
+    expect(updated.done).toBe(false);
+  });
+
+  it("updating an unrelated field leaves status/done untouched", async () => {
+    const created = await createTodo({ title: "Post abholen" });
+    await updateTodo(created.id, { status: "in_progress" });
+    const updated = await updateTodo(created.id, { priority: "high" });
+    expect(updated.status).toBe("in_progress");
+    expect(updated.done).toBe(false);
   });
 });
 

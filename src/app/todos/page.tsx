@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { TodoRow } from "@/components/TodoRow";
 import { buttonVariants } from "@/components/ui/button";
-import { listTodos, updateTodo } from "@/lib/storage/todos";
+import { listTodos, updateTodo, type TodoStatus } from "@/lib/storage/todos";
 import type { TodoRecord } from "@/lib/storage/db";
 import { utcToday } from "@/lib/domain/window";
 
@@ -25,6 +25,19 @@ export default function TodosPage() {
   async function handleToggleDone(id: string, done: boolean) {
     setTodos((prev) => prev.filter((t) => t.id !== id));
     await updateTodo(id, { done });
+  }
+
+  async function handleStatusChange(id: string, status: TodoStatus) {
+    const nowDone = status === "done";
+    // A status change that moves the todo out of the tab currently shown
+    // (done -> not-done on the "Erledigt" tab, or vice versa on "Offen")
+    // removes it from view; otherwise it just updates in place.
+    if (nowDone !== (tab === "done")) {
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+    } else {
+      setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, status, done: nowDone } : t)));
+    }
+    await updateTodo(id, { status });
   }
 
   return (
@@ -56,7 +69,14 @@ export default function TodosPage() {
       ) : (
         <div className="space-y-2">
           {todos.map((todo) => (
-            <TodoRow key={todo.id} todo={todo} todayStr={todayStr} onToggleDone={handleToggleDone} editable />
+            <TodoRow
+              key={todo.id}
+              todo={todo}
+              todayStr={todayStr}
+              onToggleDone={handleToggleDone}
+              onStatusChange={handleStatusChange}
+              editable
+            />
           ))}
         </div>
       )}

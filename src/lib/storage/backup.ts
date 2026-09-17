@@ -76,6 +76,14 @@ function isTodoRecord(v: unknown): v is TodoRecord {
     (typeof r.dueTime === "string" || r.dueTime === null) &&
     (r.priority === "low" || r.priority === "normal" || r.priority === "high" || r.priority === null) &&
     typeof r.done === "boolean" &&
+    // Optional: a backup made before the status field existed won't have
+    // it at all, and that must still import cleanly — only validate the
+    // shape when the field is actually present.
+    (r.status === undefined ||
+      r.status === "open" ||
+      r.status === "in_progress" ||
+      r.status === "deferred" ||
+      r.status === "done") &&
     typeof r.createdAt === "string"
   );
 }

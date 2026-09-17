@@ -97,6 +97,34 @@ describe("backup storage: importData", () => {
     expect(await db.todos.toArray()).toEqual([]);
   });
 
+  it("imports a todo record from before the status field existed", async () => {
+    const oldTodo = {
+      id: "t1",
+      title: "Alte Sicherung",
+      dueDate: null,
+      dueTime: null,
+      priority: null,
+      done: false,
+      createdAt: "2026-09-01",
+      // deliberately no `status` key — simulates a backup made before it existed
+    };
+    const incoming = {
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      categories: [],
+      goals: [],
+      entries: [],
+      milestones: [],
+      todos: [oldTodo],
+    };
+
+    await importData(incoming);
+
+    const imported = await db.todos.toArray();
+    expect(imported).toHaveLength(1);
+    expect(imported[0].title).toBe("Alte Sicherung");
+  });
+
   it("replaces existing local data rather than merging", async () => {
     await createCategory({ name: "Wird gelöscht", color: "#000", icon: "a" });
     const incoming = {

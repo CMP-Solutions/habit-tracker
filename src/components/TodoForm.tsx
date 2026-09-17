@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createTodo, updateTodo } from "@/lib/storage/todos";
+import { createTodo, updateTodo, type TodoStatus } from "@/lib/storage/todos";
 import type { TodoRecord } from "@/lib/storage/db";
 
 export interface ExistingTodo {
@@ -14,6 +14,33 @@ export interface ExistingTodo {
   dueDate: string | null;
   dueTime: string | null;
   priority: TodoRecord["priority"];
+  status: TodoStatus;
+}
+
+const STATUS_OPTIONS: { value: TodoStatus; label: string }[] = [
+  { value: "open", label: "Offen" },
+  { value: "in_progress", label: "In Arbeit" },
+  { value: "deferred", label: "Zurückgestellt" },
+  { value: "done", label: "Abgeschlossen (ToDo abhaken)" },
+];
+
+function StatusToggle({ value, onChange }: { value: TodoStatus; onChange: (v: TodoStatus) => void }) {
+  return (
+    <div className="inline-flex flex-wrap gap-1 rounded-lg border bg-muted/50 p-1">
+      {STATUS_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+            value === opt.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 const PRIORITY_OPTIONS: { value: TodoRecord["priority"]; label: string }[] = [
@@ -54,6 +81,11 @@ export function TodoForm({ existingTodo }: { existingTodo?: ExistingTodo }) {
   const [dueDate, setDueDate] = useState(existingTodo?.dueDate ?? "");
   const [dueTime, setDueTime] = useState(existingTodo?.dueTime ?? "");
   const [priority, setPriority] = useState<TodoRecord["priority"]>(existingTodo?.priority ?? null);
+  // Old rows saved before the status field existed have none at runtime
+  // despite the type — TodoRow derives the correct value from `done` for
+  // display, but by the time a user opens the edit form correcting this
+  // once is enough, so a plain "open" fallback keeps this simple.
+  const [status, setStatus] = useState<TodoStatus>(existingTodo?.status ?? "open");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -67,7 +99,7 @@ export function TodoForm({ existingTodo }: { existingTodo?: ExistingTodo }) {
     };
     try {
       if (existingTodo) {
-        await updateTodo(existingTodo.id, input);
+        await updateTodo(existingTodo.id, { ...input, status });
       } else {
         await createTodo(input);
       }
@@ -118,6 +150,13 @@ export function TodoForm({ existingTodo }: { existingTodo?: ExistingTodo }) {
         <Label>Priorität</Label>
         <PriorityToggle value={priority} onChange={setPriority} />
       </div>
+
+      {existingTodo && (
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <StatusToggle value={status} onChange={setStatus} />
+        </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full">
