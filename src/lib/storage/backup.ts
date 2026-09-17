@@ -123,7 +123,7 @@ export async function importData(data: unknown): Promise<void> {
     throw new Error("Invalid export file.");
   }
 
-  await db.transaction("rw", db.categories, db.goals, db.entries, db.milestones, db.todos, db.events, async () => {
+  await db.transaction("rw", [db.categories, db.goals, db.entries, db.milestones, db.todos, db.events], async () => {
     await db.categories.clear();
     await db.goals.clear();
     await db.entries.clear();
