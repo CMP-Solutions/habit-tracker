@@ -11,11 +11,26 @@ import { CmpLogo } from "@/components/CmpLogo";
 
 type Phase = "loading" | "prompt" | "welcome" | "app";
 
-const UserNameContext = createContext<string | null>(null);
+interface UserNameContextValue {
+  name: string | null;
+  update: (name: string) => void;
+}
+
+const UserNameContext = createContext<UserNameContextValue>({ name: null, update: () => {} });
 
 /** The name entered on first use, once the onboarding gate has resolved. */
 export function useUserName(): string | null {
-  return useContext(UserNameContext);
+  return useContext(UserNameContext).name;
+}
+
+/**
+ * Persists a changed name (e.g. from Settings) and propagates it live to
+ * every `useUserName()` consumer — the onboarding flow itself only sets the
+ * name once, so without this a later edit would need a full page reload to
+ * show up anywhere else in the app.
+ */
+export function useUpdateUserName(): (name: string) => void {
+  return useContext(UserNameContext).update;
 }
 
 /**
@@ -51,17 +66,22 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [phase, reducedMotion]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = input.trim();
+  function updateName(newName: string) {
+    const trimmed = newName.trim();
     if (!trimmed) return;
     setUserName(trimmed);
     setName(trimmed);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim()) return;
+    updateName(input);
     setPhase("welcome");
   }
 
   return (
-    <UserNameContext.Provider value={phase === "app" ? name : null}>
+    <UserNameContext.Provider value={{ name: phase === "app" ? name : null, update: updateName }}>
       {phase === "app" ? (
         children
       ) : (
