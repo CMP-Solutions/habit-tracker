@@ -38,6 +38,7 @@ function RecurrenceToggle({
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
+          aria-pressed={value === opt.value}
           className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
             value === opt.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
