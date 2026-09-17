@@ -4,6 +4,7 @@ import { parseUtcDateString, utcToday, utcMidnightDaysAgo, HISTORY_WINDOW_DAYS }
 import { periodBounds, PeriodUnit } from "@/lib/domain/periodCount";
 import { densifyDailyResults } from "@/lib/domain/densify";
 import { calculateCurrentStreak, calculateLongestStreak, calculateTotalSuccessCount } from "@/lib/domain/streak";
+import { evaluationResultsForGoal, currentPeriodStart, currentPeriodAlreadySucceeded } from "@/lib/domain/goalStreak";
 
 function utcTodayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -96,6 +97,12 @@ export async function updateGoal(
     throw new Error("step must be a positive number.");
   }
   const effectivePeriodicity = patch.periodicity ?? existing.periodicity;
+  if (effectivePeriodicity === "weekly") {
+    const weeklyThreshold = patch.weeklyThreshold ?? existing.weeklyThreshold;
+    if (weeklyThreshold === undefined || weeklyThreshold === null) {
+      throw new Error("weeklyThreshold is required for weekly goals.");
+    }
+  }
   if (effectivePeriodicity === "count_per_period") {
     const periodUnit = patch.periodUnit ?? existing.periodUnit;
     const periodTarget = patch.periodTarget ?? existing.periodTarget;
@@ -168,19 +175,31 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
     periodProgressByGoal.set(goal.id, { current, target: goal.periodTarget });
   }
 
-  // Current streak per goal, computed through yesterday then extended with
-  // today's already-fetched entry — an unchecked "today" must not zero out a
-  // real streak before the user has had a chance to check in.
+  // Current streak per goal, computed through the last fully-elapsed unit
+  // (yesterday for daily goals, the last complete week/month for
+  // weekly/count_per_period goals) then extended with a bonus for the
+  // still-open current unit — an unfinished "today"/current period must not
+  // zero out a real streak before the user has had a chance to complete it.
   const since = utcMidnightDaysAgo(60);
   const yesterday = utcMidnightDaysAgo(1);
   const sinceStr = since.toISOString().slice(0, 10);
   const streakByGoal = new Map<string, number>();
 
+  function successOf(goal: GoalRecord, entry: { done: boolean; value: number | null }): boolean {
+    return goal.type === "boolean" ? entry.done : (entry.value ?? 0) >= (goal.targetValue ?? Infinity);
+  }
+
   for (const goal of goals) {
+    // For weekly/count_per_period goals, the current period isn't closed
+    // yet and is evaluated separately below (currentPeriodStart is null for
+    // daily goals, so historyEnd falls back to the existing "yesterday").
+    const currentStart = currentPeriodStart(today, goal);
+    const historyEnd = currentStart ? utcMidnightDaysAgo(1, new Date(currentStart.getTime())) : yesterday;
+
     const entries = await db.entries
       .where("goalId")
       .equals(goal.id)
-      .and((e) => e.date >= sinceStr && e.date < todayStr)
+      .and((e) => e.date >= sinceStr && e.date <= historyEnd.toISOString().slice(0, 10))
       .sortBy("date");
     const createdDay = parseUtcDateString(goal.createdAt) as Date;
     let from = createdDay > since ? createdDay : since;
@@ -189,27 +208,46 @@ export async function listGoalsWithProgress(): Promise<GoalWithProgress[]> {
     const earliestEntryDate = entries[0] ? (parseUtcDateString(entries[0].date) as Date) : undefined;
     if (earliestEntryDate && earliestEntryDate < from) from = earliestEntryDate;
 
-    const results = from > yesterday
+    const dailyResults = from > historyEnd
       ? []
       : densifyDailyResults(
           entries.map((e) => ({
             date: parseUtcDateString(e.date) as Date,
-            success: goal.type === "boolean" ? e.done : (e.value ?? 0) >= (goal.targetValue ?? Infinity),
+            success: successOf(goal, e),
             skipped: e.skipped ?? false,
           })),
           from,
-          yesterday
+          historyEnd
         );
-    let streak = calculateCurrentStreak(results);
-    const todayEntry = entryByGoal.get(goal.id);
-    const todaySuccess = todayEntry
-      ? goal.type === "boolean"
-        ? todayEntry.done
-        : (todayEntry.value ?? 0) >= (goal.targetValue ?? Infinity)
-      : false;
-    // A skipped today is transparent, same as any other skipped day: it
-    // neither breaks the streak computed through yesterday nor extends it.
-    if (!todayEntry?.skipped && todaySuccess) streak++;
+    let streak = calculateCurrentStreak(evaluationResultsForGoal(dailyResults, goal));
+
+    if (currentStart) {
+      // Weekly/count_per_period: has the still-open current period already
+      // met its target from entries recorded so far this period?
+      const currentStartStr = currentStart.toISOString().slice(0, 10);
+      const currentEntries = await db.entries
+        .where("goalId")
+        .equals(goal.id)
+        .and((e) => e.date >= currentStartStr && e.date <= todayStr)
+        .sortBy("date");
+      const currentDaily = densifyDailyResults(
+        currentEntries.map((e) => ({
+          date: parseUtcDateString(e.date) as Date,
+          success: successOf(goal, e),
+          skipped: e.skipped ?? false,
+        })),
+        currentStart,
+        today
+      );
+      if (currentPeriodAlreadySucceeded(currentDaily, goal)) streak++;
+    } else {
+      // Daily: a skipped today is transparent, same as any other skipped
+      // day — it neither breaks the streak computed through yesterday nor
+      // extends it.
+      const todayEntry = entryByGoal.get(goal.id);
+      const todaySuccess = todayEntry ? successOf(goal, todayEntry) : false;
+      if (!todayEntry?.skipped && todaySuccess) streak++;
+    }
     streakByGoal.set(goal.id, streak);
   }
 
@@ -272,21 +310,35 @@ export async function getGoalHistory(id: string): Promise<GoalHistory> {
 
   const milestones = await db.milestones.where("goalId").equals(id).sortBy("achievedAt");
 
-  // `results` truthfully shows an unchecked today as a gap (correct for the
-  // heatmap/trend), but that would zero out a real streak before the user
-  // has had a chance to check in today — drop today from the streak
-  // calculation unless it already has a recorded entry.
+  // `results` truthfully shows an unchecked today/current period as a gap
+  // (correct for the heatmap/trend), but that would zero out a real streak
+  // before the user has had a chance to complete it — evaluate the streak
+  // through the last fully-elapsed unit, then add a bonus if the still-open
+  // current unit has already succeeded from entries recorded so far.
   const todayStr = today.toISOString().slice(0, 10);
-  const hasTodayEntry = entries.some((e) => e.date === todayStr);
-  const streakResults = hasTodayEntry ? results : results.slice(0, -1);
+  const currentStart = currentPeriodStart(today, goal);
+  let currentStreak: number;
+  if (currentStart) {
+    const currentStartStr = currentStart.toISOString().slice(0, 10);
+    const historyDaily = results.filter((r) => r.date < currentStartStr);
+    const currentPeriodDaily = results.filter((r) => r.date >= currentStartStr);
+    currentStreak = calculateCurrentStreak(evaluationResultsForGoal(historyDaily, goal));
+    if (currentPeriodAlreadySucceeded(currentPeriodDaily, goal)) currentStreak++;
+  } else {
+    const hasTodayEntry = entries.some((e) => e.date === todayStr);
+    const streakResults = hasTodayEntry ? results : results.slice(0, -1);
+    currentStreak = calculateCurrentStreak(streakResults);
+  }
+
+  const evaluatedResults = evaluationResultsForGoal(results, goal);
 
   return {
     goal,
     results,
     milestones,
     entryCount: entries.length,
-    currentStreak: calculateCurrentStreak(streakResults),
-    longestStreak: calculateLongestStreak(results),
-    totalSuccessCount: calculateTotalSuccessCount(results),
+    currentStreak,
+    longestStreak: calculateLongestStreak(evaluatedResults),
+    totalSuccessCount: calculateTotalSuccessCount(evaluatedResults),
   };
 }

@@ -3,9 +3,8 @@ import { generateId } from "./id";
 import { parseUtcDateString, utcToday } from "@/lib/domain/window";
 import { DailyResult } from "@/lib/domain/streak";
 import { densifyDailyResults } from "@/lib/domain/densify";
-import { groupIntoWeeks, evaluateWeek } from "@/lib/domain/weeklyGoal";
-import { groupIntoCalendarPeriods, evaluatePeriod, PeriodUnit } from "@/lib/domain/periodCount";
 import { determineNewMilestones, MilestoneAward } from "@/lib/domain/milestones";
+import { evaluationResultsForGoal } from "@/lib/domain/goalStreak";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -58,27 +57,7 @@ export async function recordEntry(input: {
   const lastRecorded = recorded[recorded.length - 1]?.date ?? dayDate;
   const dailyResults: DailyResult[] = densifyDailyResults(recorded, from, lastRecorded);
 
-  let evaluationResults: DailyResult[] = dailyResults;
-  if (goal.periodicity === "weekly" && goal.weeklyThreshold != null) {
-    const weeks = groupIntoWeeks(dailyResults.map((d) => ({ date: d.date, success: d.success })));
-    evaluationResults = weeks.map((week) => ({
-      date: week[0].date,
-      success: evaluateWeek(week, goal.weeklyThreshold as number),
-    }));
-  } else if (
-    goal.periodicity === "count_per_period" &&
-    (goal.periodUnit === "week" || goal.periodUnit === "month") &&
-    goal.periodTarget != null
-  ) {
-    const periods = groupIntoCalendarPeriods(
-      dailyResults.map((d) => ({ date: d.date, success: d.success })),
-      goal.periodUnit as PeriodUnit
-    );
-    evaluationResults = periods.map((period) => ({
-      date: period[0].date,
-      success: evaluatePeriod(period, goal.periodTarget as number),
-    }));
-  }
+  const evaluationResults: DailyResult[] = evaluationResultsForGoal(dailyResults, goal);
 
   const existingMilestones = await db.milestones.where("goalId").equals(input.goalId).toArray();
   const alreadyAwarded: MilestoneAward[] = existingMilestones.map((m) => ({ type: m.type, threshold: m.threshold }));

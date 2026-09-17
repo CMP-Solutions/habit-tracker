@@ -290,4 +290,85 @@ describe("goals storage", () => {
     expect(history.totalSuccessCount).toBe(2);
     expect(history.entryCount).toBe(2);
   });
+
+  describe("streak granularity for weekly/count_per_period goals", () => {
+    function mondayOfWeeksAgo(weeksAgo: number): Date {
+      const today = new Date();
+      const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+      monday.setUTCDate(monday.getUTCDate() - weeksAgo * 7);
+      return monday;
+    }
+
+    it("counts a streak of successful weeks, not raw days, for a weekly goal", async () => {
+      // Regression guard for the bug where the displayed streak was computed
+      // on raw daily gaps instead of period success — a goal checked in only
+      // Mon/Wed/Fri every week (meeting weeklyThreshold: 3) looked like a
+      // streak of ~1 day instead of 4 successful weeks.
+      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 3 });
+
+      for (let weeksAgo = 4; weeksAgo >= 1; weeksAgo--) {
+        const monday = mondayOfWeeksAgo(weeksAgo);
+        for (const offset of [0, 2, 4]) {
+          const d = new Date(monday);
+          d.setUTCDate(d.getUTCDate() + offset);
+          await recordEntry({ goalId: goal.id, date: d.toISOString().slice(0, 10), done: true });
+        }
+      }
+
+      const goals = await listGoalsWithProgress();
+      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(4);
+
+      const history = await getGoalHistory(goal.id);
+      expect(history.currentStreak).toBe(4);
+      expect(history.totalSuccessCount).toBe(4); // 4 successful weeks, not 12 successful days
+    });
+
+    it("counts a streak of successful periods for a count_per_period(week) goal", async () => {
+      const goal = await createGoal({
+        title: "Sport",
+        type: "boolean",
+        periodicity: "count_per_period",
+        periodUnit: "week",
+        periodTarget: 2,
+      });
+
+      for (let weeksAgo = 3; weeksAgo >= 1; weeksAgo--) {
+        const monday = mondayOfWeeksAgo(weeksAgo);
+        for (const offset of [0, 3]) {
+          const d = new Date(monday);
+          d.setUTCDate(d.getUTCDate() + offset);
+          await recordEntry({ goalId: goal.id, date: d.toISOString().slice(0, 10), done: true });
+        }
+      }
+
+      const goals = await listGoalsWithProgress();
+      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(3);
+    });
+
+    it("extends the streak by one when the still-open current week already met its threshold", async () => {
+      // weeklyThreshold: 1 keeps this deterministic regardless of which
+      // weekday the test happens to run on — a single check-in today is
+      // always enough to already satisfy the current (incomplete) week.
+      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 1 });
+
+      const priorMonday = mondayOfWeeksAgo(1);
+      await recordEntry({ goalId: goal.id, date: priorMonday.toISOString().slice(0, 10), done: true });
+      const today = new Date().toISOString().slice(0, 10);
+      await recordEntry({ goalId: goal.id, date: today, done: true });
+
+      const goals = await listGoalsWithProgress();
+      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(2);
+
+      const history = await getGoalHistory(goal.id);
+      expect(history.currentStreak).toBe(2);
+    });
+
+    it("rejects updateGoal switching to weekly without a weeklyThreshold", async () => {
+      const goal = await createGoal({ title: "Sport", type: "boolean", periodicity: "daily" });
+      await expect(updateGoal(goal.id, { periodicity: "weekly" })).rejects.toThrow(
+        "weeklyThreshold is required for weekly goals."
+      );
+    });
+  });
 });
