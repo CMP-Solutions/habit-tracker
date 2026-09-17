@@ -1,10 +1,22 @@
-import type { EventOccurrence } from "@/lib/domain/eventOccurrences";
-
 const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+/**
+ * A single item shown in a day cell — either a real event occurrence or an
+ * open ToDo's due date, unified for rendering. `kind` drives the visual
+ * distinction (chip color) and, at the call site, which edit route to link
+ * to; it carries no other behavior here.
+ */
+export interface CalendarEntry {
+  id: string;
+  kind: "event" | "todo";
+  title: string;
+  date: string;
+  time: string | null;
+}
 
 export function CalendarGrid({
   days,
-  occurrencesByDate,
+  entriesByDate,
   currentMonth,
   todayStr,
   selectedDate,
@@ -12,7 +24,7 @@ export function CalendarGrid({
   maxVisible,
 }: {
   days: Date[];
-  occurrencesByDate: Map<string, EventOccurrence[]>;
+  entriesByDate: Map<string, CalendarEntry[]>;
   /** When set, days outside this UTC month index (0-11) are dimmed. Omit for a week view where every day is "in view". */
   currentMonth?: number;
   todayStr: string;
@@ -30,12 +42,12 @@ export function CalendarGrid({
       <div className="grid grid-cols-7 gap-1">
         {days.map((day) => {
           const dateStr = day.toISOString().slice(0, 10);
-          const dayOccurrences = occurrencesByDate.get(dateStr) ?? [];
+          const dayEntries = entriesByDate.get(dateStr) ?? [];
           const isOutsideMonth = currentMonth !== undefined && day.getUTCMonth() !== currentMonth;
           const isToday = dateStr === todayStr;
           const isSelected = dateStr === selectedDate;
-          const visible = dayOccurrences.slice(0, maxVisible);
-          const overflowCount = dayOccurrences.length - visible.length;
+          const visible = dayEntries.slice(0, maxVisible);
+          const overflowCount = dayEntries.length - visible.length;
 
           return (
             <button
@@ -50,9 +62,14 @@ export function CalendarGrid({
                 {day.getUTCDate()}
               </span>
               <div className="mt-1 space-y-0.5">
-                {visible.map((occ) => (
-                  <p key={`${occ.eventId}-${occ.date}`} className="truncate rounded bg-card px-1 py-0.5 text-[11px]">
-                    {occ.title}
+                {visible.map((entry) => (
+                  <p
+                    key={`${entry.kind}-${entry.id}-${entry.date}`}
+                    className={`truncate rounded px-1 py-0.5 text-[11px] ${
+                      entry.kind === "todo" ? "bg-primary/15 text-primary" : "bg-card"
+                    }`}
+                  >
+                    {entry.title}
                   </p>
                 ))}
                 {overflowCount > 0 && <p className="text-[11px] text-muted-foreground">+{overflowCount} weitere</p>}
