@@ -10,7 +10,8 @@ interface DayResult {
 
 interface DayPercent {
   date: string;
-  percent: number;
+  /** null = no goal existed that day: the point is left out, but the day still takes up space on the axis. */
+  percent: number | null;
 }
 
 function rollingSuccessRate(results: DayResult[], windowSize = 7) {
@@ -31,16 +32,18 @@ interface TrendChartProps {
   // Aggregate view (e.g. Auswertung): the day's actual completion rate,
   // against however many goals existed that day — no smoothing, so "5/5 on
   // Monday" and "6/6 on Thursday" both read as 100%, not diluted together.
+  // Days with no data (percent: null) stay on the axis as a gap, so the chart
+  // always spans the selected range.
   dailyPercents?: DayPercent[];
 }
 
 export function TrendChart({ results, dailyPercents }: TrendChartProps) {
   const data = dailyPercents
-    ? dailyPercents.map((d) => ({ date: d.date, rate: Math.round(d.percent) }))
+    ? dailyPercents.map((d) => ({ date: d.date, rate: d.percent === null ? null : Math.round(d.percent) }))
     : rollingSuccessRate(results ?? []);
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={data}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
         <XAxis
           dataKey="date"
           stroke="var(--color-muted-foreground)"
@@ -68,7 +71,7 @@ export function TrendChart({ results, dailyPercents }: TrendChartProps) {
             color: "var(--color-popover-foreground)",
           }}
         />
-        <Line type="monotone" dataKey="rate" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="rate" stroke="var(--color-primary)" strokeWidth={2} dot={false} connectNulls={false} />
       </LineChart>
     </ResponsiveContainer>
   );

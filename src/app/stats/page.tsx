@@ -42,8 +42,13 @@ export default function StatsPage() {
   }, []);
 
   const heatmapResults = toResults(heatmapData).map((s) => ({ date: s.date, success: s.successCount === s.totalCount }));
-  const trendResults = toResults(trendData);
-  const dailyPercents = trendResults.map((s) => ({ date: s.date, percent: (s.successCount / s.totalCount) * 100 }));
+  // Every day of the selected range goes to the chart, so 7T/30T/90T/365T
+  // visibly change its span; days before any goal existed become gaps
+  // (percent: null) rather than being dropped from the axis.
+  const dailyPercents = (trendData?.daily ?? []).map((s) => ({
+    date: s.date,
+    percent: s.totalCount > 0 ? (s.successCount / s.totalCount) * 100 : null,
+  }));
   const week = trendData?.week;
   const weekPercent = week && week.totalCount > 0 ? Math.round((week.successCount / week.totalCount) * 100) : null;
 
