@@ -44,7 +44,7 @@ An `Entry` is one row per `(goalId, date)` (UTC midnight), upserted — re-submi
 
 **Reminders** (`src/lib/reminders.ts`) are a plain browser `Notification`, shown at most once per day in the evening, only while the app is open — no server, no service worker, no push subscription. This is a deliberate scope limit versus the retired server-push design: there is no way to notify a user whose browser is fully closed.
 
-**Backup** (`src/lib/storage/backup.ts`) is the only way to move data between devices or protect against accidental data loss — `exportData()`/`importData()` serialize/restore all four tables as JSON, wired into Settings → Daten. Import replaces all local data; it never merges.
+**Backup** (`src/lib/storage/backup.ts`) is the only way to move data between devices or protect against accidental data loss — `exportData()`/`importData()` serialize/restore all four tables as JSON, wired into Optionen → Daten. Import replaces all local data; it never merges.
 
 **Testing.** `src/lib/storage/__tests__/*.test.ts` are integration tests against an in-memory IndexedDB (`fake-indexeddb`, imported via `fake-indexeddb/auto`) — no real browser needed, no shared state between test files. Domain unit tests in `src/lib/domain/__tests__/` need no storage at all.
 

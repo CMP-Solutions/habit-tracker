@@ -44,4 +44,4 @@ No real user content, testimonials, or brand assets exist yet — the German-lan
 - Model habit success precisely (daily / X-of-7-weekly / count-per-period), rather than forcing every habit into a single generic "did you do it" checkbox.
 - Derive, don't store: streaks, period success, and milestones are computed from entry history on read, not cached state that can drift.
 - Past history is never lost — goals archive instead of delete, backfilled entries recompute derived state rather than being rejected.
-- Each browser's data is private to that browser; there is no concept of a user account, and nothing is synced or shared across devices. A manual JSON export/import (Settings → Daten) is the only way to move data between devices or back it up.
+- Each browser's data is private to that browser; there is no concept of a user account, and nothing is synced or shared across devices. A manual JSON export/import (Optionen → Daten) is the only way to move data between devices or back it up.

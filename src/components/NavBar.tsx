@@ -13,9 +13,7 @@ const LINKS = [
   { href: "/kalender", label: "Kalender", icon: CalendarRange },
   { href: "/stats", label: "Auswertung", icon: BarChart3 },
   { href: "/milestones", label: "Meilensteine", icon: Trophy },
-  // Shorter on the phone tab bar: "Einstellungen" is wider than its share of a
-  // 7-slot bar and would run off the screen edge.
-  { href: "/settings", label: "Einstellungen", mobileLabel: "Optionen", icon: Settings },
+  { href: "/settings", label: "Optionen", icon: Settings },
 ];
 
 // The "Neu" button must sit dead center of the mobile tab bar, so the links
@@ -104,7 +102,7 @@ function TabLink({
   link,
   active,
 }: {
-  link: { href: string; label: string; mobileLabel?: string; icon: typeof Home };
+  link: { href: string; label: string; icon: typeof Home };
   active: boolean;
 }) {
   const Icon = link.icon;
@@ -116,7 +114,7 @@ function TabLink({
       }`}
     >
       <Icon className="size-5" />
-      {link.mobileLabel ?? link.label}
+      {link.label}
     </Link>
   );
 }
