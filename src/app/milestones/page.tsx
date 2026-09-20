@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getMilestones } from "@/lib/storage/milestones";
 import { MedalBadge } from "@/components/milestones/MedalBadge";
-import { STREAK_TIERS, TOTAL_COUNT_TIER, tierFor, tiersFor } from "@/components/milestones/tiers";
+import { STREAK_TIERS, TOTAL_COUNT_TIER, tierFor, tiersFor, type MilestoneTier } from "@/components/milestones/tiers";
 
 interface AchievedMilestone {
   id: string;
@@ -28,6 +28,35 @@ interface MilestonesResponse {
   upcoming: UpcomingMilestone[];
 }
 
+function UpcomingDetails({
+  u,
+  tier,
+  isAchieved,
+  isActive,
+}: {
+  u: UpcomingMilestone;
+  tier: MilestoneTier;
+  isAchieved: boolean;
+  isActive: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="font-medium">{tier.name}</p>
+      <p className="text-xs text-muted-foreground italic">{tier.tagline}</p>
+      <p className="text-xs text-muted-foreground">
+        {u.type === "streak" ? `${tier.threshold} Tage Streak` : `${tier.threshold}x insgesamt`}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {isAchieved
+          ? "Bereits freigeschaltet"
+          : isActive
+            ? `${u.current} / ${u.threshold} — für ${u.goalTitle}`
+            : "Noch nicht erreichbar"}
+      </p>
+    </div>
+  );
+}
+
 export default function MilestonesPage() {
   const [data, setData] = useState<MilestonesResponse | null>(null);
 
@@ -37,6 +66,8 @@ export default function MilestonesPage() {
 
   const achieved = data?.achieved ?? [];
   const upcoming = data?.upcoming ?? [];
+  const streakItems = upcoming.filter((u) => u.type === "streak");
+  const totalItems = upcoming.filter((u) => u.type === "total_count");
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-8 px-6 py-10">
@@ -45,53 +76,65 @@ export default function MilestonesPage() {
       {upcoming.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">Als Nächstes</h2>
-          <ul className="space-y-3">
-            {upcoming.map((u) => (
-              <li key={`${u.goalId}-${u.type}-${u.threshold}`} className="rounded-lg border bg-card p-4 backdrop-blur-xl">
-                <p className="mb-3 flex items-center gap-1.5 text-sm font-medium">
-                  {u.goalIcon && <span className="text-base leading-none">{u.goalIcon}</span>}
-                  {u.goalTitle}
-                  {u.type === "streak" && (
-                    <span className="font-mono text-xs font-normal text-muted-foreground">
+
+          {streakItems.length > 0 && (
+            <ul className="space-y-3">
+              {streakItems.map((u) => (
+                <li
+                  key={`${u.goalId}-${u.type}-${u.threshold}`}
+                  className="flex flex-col gap-3 rounded-lg border bg-card px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                    {u.goalIcon && <span className="text-base leading-none">{u.goalIcon}</span>}
+                    {u.goalTitle}
+                    <span className="font-mono text-xs font-normal whitespace-nowrap text-muted-foreground">
                       · {u.current} {u.current === 1 ? "Tag" : "Tage"} Streak
                     </span>
-                  )}
-                </p>
-                <div className="flex items-center gap-2">
-                  {tiersFor(u.type).map((tier) => {
-                    const isAchieved = u.achievedThresholds.includes(tier.threshold);
-                    const isActive = tier.threshold === u.threshold;
-                    const state = isAchieved ? "achieved" : isActive ? "active" : "locked";
-                    return (
-                      <MedalBadge
-                        key={tier.threshold}
-                        tier={tier}
-                        state={state}
-                        size="sm"
-                        progress={isActive ? u.current / u.threshold : undefined}
-                        details={
-                          <div className="space-y-1">
-                            <p className="font-medium">{tier.name}</p>
-                            <p className="text-xs text-muted-foreground italic">{tier.tagline}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {u.type === "streak" ? `${tier.threshold} Tage Streak` : `${tier.threshold}x insgesamt`}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {isAchieved
-                                ? "Bereits freigeschaltet"
-                                : isActive
-                                  ? `${u.current} / ${u.threshold} — für ${u.goalTitle}`
-                                  : "Noch nicht erreichbar"}
-                            </p>
-                          </div>
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </li>
-            ))}
-          </ul>
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {tiersFor(u.type).map((tier) => {
+                      const isAchieved = u.achievedThresholds.includes(tier.threshold);
+                      const isActive = tier.threshold === u.threshold;
+                      const state = isAchieved ? "achieved" : isActive ? "active" : "locked";
+                      return (
+                        <MedalBadge
+                          key={tier.threshold}
+                          tier={tier}
+                          state={state}
+                          size="sm"
+                          progress={isActive ? u.current / u.threshold : undefined}
+                          details={<UpcomingDetails u={u} tier={tier} isAchieved={isAchieved} isActive={isActive} />}
+                        />
+                      );
+                    })}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {totalItems.length > 0 && (
+            <div className="rounded-lg border bg-card p-4 backdrop-blur-xl">
+              <p className="mb-4 text-sm font-medium">{TOTAL_COUNT_TIER.threshold}x insgesamt</p>
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5">
+                {totalItems.map((u) => (
+                  <li key={u.goalId} className="flex min-w-0 flex-col items-center gap-2 text-center">
+                    <p className="w-full text-xs leading-tight font-medium break-words">
+                      {u.goalIcon && <span className="mr-1 text-sm leading-none">{u.goalIcon}</span>}
+                      {u.goalTitle}
+                    </p>
+                    <MedalBadge
+                      tier={TOTAL_COUNT_TIER}
+                      state="active"
+                      size="sm"
+                      progress={u.current / u.threshold}
+                      details={<UpcomingDetails u={u} tier={TOTAL_COUNT_TIER} isAchieved={false} isActive />}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 
