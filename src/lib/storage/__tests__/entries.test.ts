@@ -80,7 +80,7 @@ describe("entries storage: recordEntry", () => {
     expect(last.newMilestones).toEqual([]);
   });
 
-  it("awards a 7-period streak milestone across 7 consecutive weekly periods, not 7 raw days", async () => {
+  it("awards a 7-day streak milestone for 7 successful days in 7 consecutive successful weeks", async () => {
     const goal = await createGoal({
       title: "1x pro Woche",
       type: "boolean",
@@ -89,8 +89,8 @@ describe("entries storage: recordEntry", () => {
       periodTarget: 1,
     });
     // 7 Mondays, 7 days apart — one check-in per calendar week, 7 weeks running.
-    // Raw-day evaluation would never form a 7-long streak from 7 isolated days
-    // surrounded by empty gap days; only period-grouping does.
+    // Every week met its target of 1, so the chain never breaks even though the
+    // check-ins are 7 days apart; a raw-day streak would be 1.
     const mondays = ["2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12", "2026-10-19"];
     let last: { newMilestones: { type: string; threshold: number }[] } = { newMilestones: [] };
     for (const date of mondays) {

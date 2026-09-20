@@ -1,11 +1,17 @@
 import { DailyResult } from "./streak";
-import { groupIntoCalendarPeriods, evaluatePeriod, periodBounds, PeriodUnit } from "./periodCount";
+import { groupIntoCalendarPeriods, periodBounds, PeriodUnit } from "./periodCount";
 
 export interface GoalPeriodicityConfig {
   periodicity: "daily" | "weekly" | "count_per_period";
   weeklyThreshold: number | null;
   periodUnit: "week" | "month" | null;
   periodTarget: number | null;
+}
+
+export interface StreakStats {
+  currentStreak: number;
+  longestStreak: number;
+  totalSuccessCount: number;
 }
 
 function unitAndTarget(goal: GoalPeriodicityConfig): { unit: PeriodUnit; target: number } | null {
@@ -22,52 +28,58 @@ function unitAndTarget(goal: GoalPeriodicityConfig): { unit: PeriodUnit; target:
   return null;
 }
 
+/** Weekly and count_per_period goals succeed per week/month, not per day. */
+export function isPeriodGoal(goal: GoalPeriodicityConfig): boolean {
+  return unitAndTarget(goal) !== null;
+}
+
+function dateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Regroups daily results into one evaluated result per period (week/month)
- * for weekly/count_per_period goals — a "3x pro Woche" goal succeeds or
- * fails on a whole-period basis, not a daily one, so its streak must be a
- * streak of successful periods, not successful days. Daily goals pass
- * through unchanged. This is the same grouping `recordEntry` already uses
- * to decide milestone crossings; reusing it here keeps the displayed
- * streak/history numbers consistent with which milestones actually get
- * awarded, instead of the two disagreeing about what "streak" means.
+ * Streak numbers for a weekly/count_per_period goal, counted in DAYS so they
+ * stay comparable with daily goals (and with the "7 / 30 / 100 Tage" medal
+ * tiers): a "3x pro Woche" goal that hit its target four weeks in a row has
+ * a streak of 12, not 4 and not 1.
+ *
+ * The streak is every successful day inside an unbroken chain of periods
+ * that met their target. A completed period that missed its target breaks
+ * the chain (its own successful days don't count toward the streak, though
+ * they still count toward `totalSuccessCount`). The period containing
+ * `today` is still open — it can't have failed yet, so it never breaks the
+ * chain, and the successes it already has extend it right away.
+ *
+ * `dailyResults` must be gapless and reach through `today`, otherwise an
+ * unfinished current period can't be told apart from a missed one. Returns
+ * null for daily goals, which use the plain per-day streak functions.
  */
-export function evaluationResultsForGoal(dailyResults: DailyResult[], goal: GoalPeriodicityConfig): DailyResult[] {
+export function periodStreakStats(
+  dailyResults: DailyResult[],
+  goal: GoalPeriodicityConfig,
+  today: Date
+): StreakStats | null {
   const config = unitAndTarget(goal);
-  if (!config) return dailyResults;
+  if (!config) return null;
+
+  const openPeriodStart = dateStr(periodBounds(today, config.unit).start);
   const periods = groupIntoCalendarPeriods(
     dailyResults.map((d) => ({ date: d.date, success: d.success })),
     config.unit
   );
-  return periods.map((period) => ({ date: period[0].date, success: evaluatePeriod(period, config.target) }));
-}
 
-/**
- * Start of the calendar period (week/month) that `today` falls in, for
- * weekly/count_per_period goals — the period still in progress, not yet
- * eligible for period-based evaluation via `evaluationResultsForGoal`.
- * Returns null for daily goals, which have no such concept.
- */
-export function currentPeriodStart(today: Date, goal: GoalPeriodicityConfig): Date | null {
-  const config = unitAndTarget(goal);
-  if (!config) return null;
-  return periodBounds(today, config.unit).start;
-}
+  let run = 0;
+  let longest = 0;
+  let total = 0;
+  for (const period of periods) {
+    const successes = period.filter((d) => d.success).length;
+    total += successes;
+    const periodStart = dateStr(periodBounds(new Date(period[0].date + "T00:00:00Z"), config.unit).start);
+    const isOpen = periodStart >= openPeriodStart;
+    const failed = !isOpen && successes < config.target;
+    run = failed ? 0 : run + successes;
+    longest = Math.max(longest, run);
+  }
 
-/**
- * Whether the still-in-progress current period has already met its target,
- * based on entries recorded so far this period (the period itself isn't
- * over yet). Used to extend a displayed streak by one when the current
- * period is already a success, without breaking the streak just because
- * the period hasn't finished — the same neutrality an unchecked "today"
- * already gets for daily goals (see `listGoalsWithProgress`).
- */
-export function currentPeriodAlreadySucceeded(
-  entriesSincePeriodStart: DailyResult[],
-  goal: GoalPeriodicityConfig
-): boolean {
-  const config = unitAndTarget(goal);
-  if (!config) return false;
-  const successCount = entriesSincePeriodStart.filter((d) => d.success).length;
-  return successCount >= config.target;
+  return { currentStreak: run, longestStreak: longest, totalSuccessCount: total };
 }

@@ -3,6 +3,7 @@ import { parseUtcDateString, utcToday } from "@/lib/domain/window";
 import { densifyDailyResults } from "@/lib/domain/densify";
 import { calculateCurrentStreak, calculateTotalSuccessCount } from "@/lib/domain/streak";
 import { determineUpcomingProgress, MilestoneAward } from "@/lib/domain/milestones";
+import { isPeriodGoal, periodStreakStats } from "@/lib/domain/goalStreak";
 
 export interface AchievedMilestoneView {
   id: string;
@@ -19,6 +20,8 @@ export interface UpcomingMilestoneView {
   type: MilestoneAward["type"];
   threshold: number;
   current: number;
+  /** Weekly/count_per_period goal: its streak counts successful days across consecutive successful weeks/months. */
+  periodBased: boolean;
   /**
    * Thresholds of this type already earned for this goal (ascending) — a
    * broken-and-rebuilt streak never re-awards a tier already won, so the UI
@@ -85,8 +88,12 @@ export async function getMilestones(): Promise<{
     const hasTodayEntry = entries.some((e) => e.date === todayStr);
     const streakResults = hasTodayEntry ? results : results.slice(0, -1);
 
-    const currentStreak = calculateCurrentStreak(streakResults);
-    const totalCount = calculateTotalSuccessCount(results);
+    // Weekly/count_per_period goals count successful days across consecutive
+    // successful weeks/months, matching how the goal card and medals are
+    // awarded, instead of a raw run of daily results.
+    const periodStats = periodStreakStats(results, goal, today);
+    const currentStreak = periodStats ? periodStats.currentStreak : calculateCurrentStreak(streakResults);
+    const totalCount = periodStats ? periodStats.totalSuccessCount : calculateTotalSuccessCount(results);
     const awarded = awardedByGoal.get(goal.id) ?? [];
 
     for (const progress of determineUpcomingProgress(currentStreak, totalCount, awarded)) {
@@ -99,6 +106,7 @@ export async function getMilestones(): Promise<{
         goalTitle: goal.title,
         goalIcon: goal.icon,
         achievedThresholds,
+        periodBased: isPeriodGoal(goal),
         ...progress,
       });
     }

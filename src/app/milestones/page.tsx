@@ -21,6 +21,7 @@ interface UpcomingMilestone {
   threshold: number;
   current: number;
   achievedThresholds: number[];
+  periodBased: boolean;
 }
 
 interface MilestonesResponse {
@@ -46,6 +47,11 @@ function UpcomingDetails({
       <p className="text-xs text-muted-foreground">
         {u.type === "streak" ? `${tier.threshold} Tage Streak` : `${tier.threshold}x insgesamt`}
       </p>
+      {u.periodBased && u.type === "streak" && (
+        <p className="text-xs text-muted-foreground">
+          Zählt alle erfolgreichen Tage, solange jede Woche/jeder Monat sein Ziel erreicht.
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         {isAchieved
           ? "Bereits freigeschaltet"

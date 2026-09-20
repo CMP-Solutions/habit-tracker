@@ -38,7 +38,33 @@ describe("milestones storage: getMilestones", () => {
       threshold: 7,
       current: 4,
       achievedThresholds: [3],
+      periodBased: false,
     });
+  });
+
+  it("shows a 3x/week goal's streak in successful days, not as a 1-day streak", async () => {
+    const goal = await createGoal({ title: "Laufen", type: "boolean", periodicity: "weekly", weeklyThreshold: 3 });
+    const monday = utcToday();
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    // Two completed weeks, each with Mon/Wed/Fri checked (3x — target met).
+    for (const weeksAgo of [2, 1]) {
+      for (const offset of [0, 2, 4]) {
+        const d = new Date(monday);
+        d.setUTCDate(d.getUTCDate() - weeksAgo * 7 + offset);
+        await recordEntry({ goalId: goal.id, date: d.toISOString().slice(0, 10), done: true });
+      }
+    }
+
+    const { upcoming } = await getMilestones();
+    const streak = upcoming.find((u) => u.goalId === goal.id && u.type === "streak");
+    expect(streak?.current).toBe(6);
+    expect(streak?.periodBased).toBe(true);
+    // 6 successful days ≥ 3, so the first medal (3 Tage) is already earned.
+    expect(streak?.achievedThresholds).toEqual([3]);
+    expect(streak?.threshold).toBe(7);
+
+    const total = upcoming.find((u) => u.goalId === goal.id && u.type === "total_count");
+    expect(total?.current).toBe(6);
   });
 
   it("omits a goal with no entries yet", async () => {

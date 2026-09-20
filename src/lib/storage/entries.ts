@@ -3,8 +3,8 @@ import { generateId } from "./id";
 import { parseUtcDateString, utcToday } from "@/lib/domain/window";
 import { DailyResult } from "@/lib/domain/streak";
 import { densifyDailyResults } from "@/lib/domain/densify";
-import { determineNewMilestones, MilestoneAward } from "@/lib/domain/milestones";
-import { evaluationResultsForGoal } from "@/lib/domain/goalStreak";
+import { determineNewMilestones, determineNewMilestonesFromCounts, MilestoneAward } from "@/lib/domain/milestones";
+import { isPeriodGoal, periodStreakStats } from "@/lib/domain/goalStreak";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -55,14 +55,19 @@ export async function recordEntry(input: {
   const firstRecorded = recorded[0]?.date ?? dayDate;
   const from = goalCreatedAt < firstRecorded ? goalCreatedAt : firstRecorded;
   const lastRecorded = recorded[recorded.length - 1]?.date ?? dayDate;
-  const dailyResults: DailyResult[] = densifyDailyResults(recorded, from, lastRecorded);
-
-  const evaluationResults: DailyResult[] = evaluationResultsForGoal(dailyResults, goal);
+  // Weekly/count_per_period goals need the days up to today too, so the
+  // still-open current week/month isn't mistaken for a missed one.
+  const today = utcToday();
+  const to = isPeriodGoal(goal) && today > lastRecorded ? today : lastRecorded;
+  const dailyResults: DailyResult[] = densifyDailyResults(recorded, from, to);
 
   const existingMilestones = await db.milestones.where("goalId").equals(input.goalId).toArray();
   const alreadyAwarded: MilestoneAward[] = existingMilestones.map((m) => ({ type: m.type, threshold: m.threshold }));
 
-  const newMilestones = determineNewMilestones(evaluationResults, alreadyAwarded);
+  const periodStats = periodStreakStats(dailyResults, goal, today);
+  const newMilestones = periodStats
+    ? determineNewMilestonesFromCounts(periodStats.currentStreak, periodStats.totalSuccessCount, alreadyAwarded)
+    : determineNewMilestones(dailyResults, alreadyAwarded);
   if (newMilestones.length > 0) {
     const todayStr = utcToday().toISOString().slice(0, 10);
     const records: MilestoneRecord[] = newMilestones.map((m) => ({

@@ -291,7 +291,7 @@ describe("goals storage", () => {
     expect(history.entryCount).toBe(2);
   });
 
-  describe("streak granularity for weekly/count_per_period goals", () => {
+  describe("streak for weekly/count_per_period goals (counted in successful days)", () => {
     function mondayOfWeeksAgo(weeksAgo: number): Date {
       const today = new Date();
       const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
@@ -299,32 +299,30 @@ describe("goals storage", () => {
       monday.setUTCDate(monday.getUTCDate() - weeksAgo * 7);
       return monday;
     }
-
-    it("counts a streak of successful weeks, not raw days, for a weekly goal", async () => {
-      // Regression guard for the bug where the displayed streak was computed
-      // on raw daily gaps instead of period success — a goal checked in only
-      // Mon/Wed/Fri every week (meeting weeklyThreshold: 3) looked like a
-      // streak of ~1 day instead of 4 successful weeks.
-      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 3 });
-
-      for (let weeksAgo = 4; weeksAgo >= 1; weeksAgo--) {
-        const monday = mondayOfWeeksAgo(weeksAgo);
-        for (const offset of [0, 2, 4]) {
-          const d = new Date(monday);
-          d.setUTCDate(d.getUTCDate() + offset);
-          await recordEntry({ goalId: goal.id, date: d.toISOString().slice(0, 10), done: true });
-        }
+    async function checkIn(goalId: string, weeksAgo: number, offsets: number[]) {
+      for (const offset of offsets) {
+        const d = mondayOfWeeksAgo(weeksAgo);
+        d.setUTCDate(d.getUTCDate() + offset);
+        await recordEntry({ goalId, date: d.toISOString().slice(0, 10), done: true });
       }
+    }
+
+    it("counts all successful days across consecutive successful weeks, not raw daily gaps", async () => {
+      // Regression guard: a goal checked in only Mon/Wed/Fri every week
+      // (meeting weeklyThreshold: 3) used to show a streak of ~1.
+      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 3 });
+      for (let weeksAgo = 4; weeksAgo >= 1; weeksAgo--) await checkIn(goal.id, weeksAgo, [0, 2, 4]);
 
       const goals = await listGoalsWithProgress();
-      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(4);
+      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(12);
 
       const history = await getGoalHistory(goal.id);
-      expect(history.currentStreak).toBe(4);
-      expect(history.totalSuccessCount).toBe(4); // 4 successful weeks, not 12 successful days
+      expect(history.currentStreak).toBe(12);
+      expect(history.longestStreak).toBe(12);
+      expect(history.totalSuccessCount).toBe(12);
     });
 
-    it("counts a streak of successful periods for a count_per_period(week) goal", async () => {
+    it("counts a count_per_period(week) goal the same way", async () => {
       const goal = await createGoal({
         title: "Sport",
         type: "boolean",
@@ -332,36 +330,44 @@ describe("goals storage", () => {
         periodUnit: "week",
         periodTarget: 2,
       });
-
-      for (let weeksAgo = 3; weeksAgo >= 1; weeksAgo--) {
-        const monday = mondayOfWeeksAgo(weeksAgo);
-        for (const offset of [0, 3]) {
-          const d = new Date(monday);
-          d.setUTCDate(d.getUTCDate() + offset);
-          await recordEntry({ goalId: goal.id, date: d.toISOString().slice(0, 10), done: true });
-        }
-      }
+      for (let weeksAgo = 3; weeksAgo >= 1; weeksAgo--) await checkIn(goal.id, weeksAgo, [0, 3]);
 
       const goals = await listGoalsWithProgress();
-      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(3);
+      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(6);
     });
 
-    it("extends the streak by one when the still-open current week already met its threshold", async () => {
-      // weeklyThreshold: 1 keeps this deterministic regardless of which
-      // weekday the test happens to run on — a single check-in today is
-      // always enough to already satisfy the current (incomplete) week.
-      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 1 });
+    it("a missed week resets the streak but keeps the total and the longest streak", async () => {
+      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 3 });
+      await checkIn(goal.id, 3, [0, 2, 4]); // met
+      await checkIn(goal.id, 2, [0]); // missed (1 of 3)
+      await checkIn(goal.id, 1, [0, 2, 4]); // met
 
-      const priorMonday = mondayOfWeeksAgo(1);
-      await recordEntry({ goalId: goal.id, date: priorMonday.toISOString().slice(0, 10), done: true });
-      const today = new Date().toISOString().slice(0, 10);
-      await recordEntry({ goalId: goal.id, date: today, done: true });
+      const history = await getGoalHistory(goal.id);
+      expect(history.currentStreak).toBe(3);
+      expect(history.longestStreak).toBe(3);
+      expect(history.totalSuccessCount).toBe(7);
+    });
+
+    it("adds today's success on top of the last completed week", async () => {
+      // weeklyThreshold: 1 keeps this deterministic regardless of which
+      // weekday the test runs on.
+      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 1 });
+      await checkIn(goal.id, 1, [0]);
+      await recordEntry({ goalId: goal.id, date: new Date().toISOString().slice(0, 10), done: true });
 
       const goals = await listGoalsWithProgress();
       expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(2);
+      expect((await getGoalHistory(goal.id)).currentStreak).toBe(2);
+    });
 
-      const history = await getGoalHistory(goal.id);
-      expect(history.currentStreak).toBe(2);
+    it("does not break the streak while the current week is still unfinished", async () => {
+      const goal = await createGoal({ title: "Fitness", type: "boolean", periodicity: "weekly", weeklyThreshold: 3 });
+      await checkIn(goal.id, 2, [0, 2, 4]);
+      await checkIn(goal.id, 1, [0, 2, 4]);
+      // nothing yet in the current week
+
+      const goals = await listGoalsWithProgress();
+      expect(goals.find((g) => g.id === goal.id)?.currentStreak).toBe(6);
     });
 
     it("rejects updateGoal switching to weekly without a weeklyThreshold", async () => {

@@ -53,20 +53,24 @@ export function determineUpcomingProgress(
   return upcoming;
 }
 
-export function determineNewMilestones(
-  results: DailyResult[],
+/**
+ * Awards for already-computed counts — lets goals whose streak isn't a plain
+ * run of daily results (weekly / count_per_period goals) reuse the same
+ * threshold logic.
+ */
+export function determineNewMilestonesFromCounts(
+  currentStreak: number,
+  totalCount: number,
   alreadyAwarded: MilestoneAward[]
 ): MilestoneAward[] {
   const newAwards: MilestoneAward[] = [];
 
-  const currentStreak = calculateCurrentStreak(results);
   for (const threshold of STREAK_THRESHOLDS) {
     if (currentStreak >= threshold && !alreadyHas(alreadyAwarded, "streak", threshold)) {
       newAwards.push({ type: "streak", threshold });
     }
   }
 
-  const totalCount = calculateTotalSuccessCount(results);
   for (const threshold of TOTAL_COUNT_THRESHOLDS) {
     if (totalCount >= threshold && !alreadyHas(alreadyAwarded, "total_count", threshold)) {
       newAwards.push({ type: "total_count", threshold });
@@ -74,4 +78,15 @@ export function determineNewMilestones(
   }
 
   return newAwards;
+}
+
+export function determineNewMilestones(
+  results: DailyResult[],
+  alreadyAwarded: MilestoneAward[]
+): MilestoneAward[] {
+  return determineNewMilestonesFromCounts(
+    calculateCurrentStreak(results),
+    calculateTotalSuccessCount(results),
+    alreadyAwarded
+  );
 }
