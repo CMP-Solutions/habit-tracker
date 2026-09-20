@@ -13,8 +13,14 @@ const LINKS = [
   { href: "/kalender", label: "Kalender", icon: CalendarRange },
   { href: "/stats", label: "Auswertung", icon: BarChart3 },
   { href: "/milestones", label: "Meilensteine", icon: Trophy },
-  { href: "/settings", label: "Einstellungen", icon: Settings },
+  // Shorter on the phone tab bar: "Einstellungen" is wider than its share of a
+  // 7-slot bar and would run off the screen edge.
+  { href: "/settings", label: "Einstellungen", mobileLabel: "Optionen", icon: Settings },
 ];
+
+// The "Neu" button must sit dead center of the mobile tab bar, so the links
+// are split evenly around it (needs an even number of LINKS).
+const TAB_BAR_HALF = LINKS.length / 2;
 
 export function NavBar() {
   const pathname = usePathname();
@@ -62,26 +68,33 @@ export function NavBar() {
           pattern for a small fixed set of top-level destinations. "Neues
           Ziel" is an action, not a destination, so it's always
           primary-colored rather than toggling on pathname match. */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-card/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
-        {LINKS.slice(0, 2).map((link) => (
-          <TabLink key={link.href} link={link} active={pathname === link.href} />
-        ))}
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)] items-center border-t bg-card/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
+        {/* Both sides are the same width no matter how long their labels are
+            (minmax(0,1fr)), so the "Neu" column in between is always dead
+            center of the bar. */}
+        <div className="flex items-center justify-around">
+          {LINKS.slice(0, TAB_BAR_HALF).map((link) => (
+            <TabLink key={link.href} link={link} active={pathname === link.href} />
+          ))}
+        </div>
         {/* A filled badge, not a text color, marks this as an action button —
             plain primary text would be indistinguishable from an active
             destination tab (see the mobile-adaptation critique finding). */}
         <NewMenu
           side="top"
           align="center"
-          triggerClassName="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground transition-colors"
+          triggerClassName="flex w-full flex-col items-center gap-0.5 py-2 text-[10px] text-muted-foreground transition-colors"
         >
           <span className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Plus className="size-4" />
           </span>
           Neu
         </NewMenu>
-        {LINKS.slice(2).map((link) => (
-          <TabLink key={link.href} link={link} active={pathname === link.href} />
-        ))}
+        <div className="flex items-center justify-around">
+          {LINKS.slice(TAB_BAR_HALF).map((link) => (
+            <TabLink key={link.href} link={link} active={pathname === link.href} />
+          ))}
+        </div>
       </nav>
     </>
   );
@@ -91,19 +104,19 @@ function TabLink({
   link,
   active,
 }: {
-  link: { href: string; label: string; icon: typeof Home };
+  link: { href: string; label: string; mobileLabel?: string; icon: typeof Home };
   active: boolean;
 }) {
   const Icon = link.icon;
   return (
     <Link
       href={link.href}
-      className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors ${
+      className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors max-[400px]:text-[9.5px] max-[350px]:text-[9px] ${
         active ? "text-primary" : "text-muted-foreground"
       }`}
     >
       <Icon className="size-5" />
-      {link.label}
+      {link.mobileLabel ?? link.label}
     </Link>
   );
 }
